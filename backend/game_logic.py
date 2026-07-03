@@ -350,12 +350,13 @@ async def _spin_game(room_id: str, commission_rate: int = 5):
                     parse_mode="HTML"
                 )
             else:
+                winner_name = winner.get('first_name') or 'Noma’lum'
                 await bot.send_message(
                     p["telegram_id"],
                     f"😔 <b>Mag'lubiyat</b>\n\n"
                     f"🎮 O'yin: <code>#{room_id[-6:]}</code>\n"
                     f"💸 Stavka: ⭐ {p['bet']:,}\n"
-                    f"🏆 G'olib: {winner.get('first_name', 'Noma\\'lum')}",
+                    f"🏆 G'olib: {winner_name}",
                     parse_mode="HTML"
                 )
     except Exception:
