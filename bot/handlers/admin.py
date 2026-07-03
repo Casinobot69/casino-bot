@@ -70,6 +70,7 @@ async def cb_admin_settings(callback: CallbackQuery):
         return
 
     settings = await get_all_settings()
+    m_mode = 'HA' if settings.get('maintenance_mode') == '1' else "YO'Q"
     text = (
         "⚙️ <b>O'yin Sozlamalari:</b>\n\n"
         f"• Komissiya foizi: <b>{settings.get('commission_rate', 5)}%</b>\n"
@@ -79,7 +80,7 @@ async def cb_admin_settings(callback: CallbackQuery):
         f"• Maksimal o'yinchilar: <b>{settings.get('max_players', 8)} ta</b>\n"
         f"• NFT chegarasi (Threshold): <b>⭐ {settings.get('nft_threshold', 375)} Stars</b>\n"
         f"• Yangi a'zo bonusi: <b>⭐ {settings.get('welcome_bonus', 0)} Stars</b>\n"
-        f"• Texnik ishlar (Maintenance): <b>{'HA' if settings.get('maintenance_mode') == '1' else 'YO\'Q'}</b>\n\n"
+        f"• Texnik ishlar (Maintenance): <b>{m_mode}</b>\n\n"
         "💡 <i>Qiymatlarni o'zgartirish uchun quyidagi buyruqlardan foydalaning:</i>\n"
         "<code>/set commission_rate 5</code>\n"
         "<code>/set min_bet 100</code>\n"
