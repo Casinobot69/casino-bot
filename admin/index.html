@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 Casino Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0c;--surface:#13131a;--surface2:#1c1c26;--surface3:#242432;
+  --border:#2a2a3a;--border2:#363650;--text:#f0f0ff;--text2:#8888aa;
+  --accent:#5865f2;--accent2:#7c4dff;--gold:#f6c90e;
+  --green:#23d160;--red:#ff4757;--orange:#fd9644;--purple:#a29bfe;
+  --radius:14px;--shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+html{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+body{display:flex;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{
+  width:240px;min-height:100vh;background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+  position:fixed;left:0;top:0;bottom:0;z-index:100;
+  transition:transform .3s;
+}
+.sidebar-logo{
+  padding:24px 20px;border-bottom:1px solid var(--border);
+  font-size:20px;font-weight:800;display:flex;align-items:center;gap:10px;
+}
+.sidebar-logo .logo-icon{font-size:24px}
+.sidebar-logo .logo-badge{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:auto;
+  font-weight:700;letter-spacing:1px;
+}
+.nav{padding:12px 0;flex:1;overflow-y:auto}
+.nav-item{
+  display:flex;align-items:center;gap:12px;padding:11px 20px;
+  color:var(--text2);font-size:14px;font-weight:500;cursor:pointer;
+  border-left:3px solid transparent;transition:all .2s;user-select:none;
+}
+.nav-item:hover{color:var(--text);background:rgba(88,101,242,0.07)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(88,101,242,0.1);font-weight:600}
+.nav-item .icon{font-size:18px;width:22px;text-align:center}
+.nav-sep{height:1px;background:var(--border);margin:8px 16px}
+.sidebar-bottom{padding:16px 20px;border-top:1px solid var(--border)}
+.admin-badge{display:flex;align-items:center;gap:10px;font-size:13px}
+.admin-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
+/* MAIN */
+.main{margin-left:240px;flex:1;min-height:100vh;background:var(--bg)}
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:16px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+}
+.topbar-title{font-size:18px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-btn{
+  padding:8px 16px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer;
+  transition:all .2s;font-weight:500;
+}
+.topbar-btn:hover{background:var(--surface3);color:var(--text)}
+
+/* LOGIN */
+#loginScreen{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;z-index:9999;
+}
+.login-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:24px;
+  padding:40px;width:380px;text-align:center;
+  box-shadow:0 24px 80px rgba(0,0,0,0.5);
+}
+.login-logo{font-size:56px;margin-bottom:16px}
+.login-title{font-size:24px;font-weight:800;margin-bottom:8px}
+.login-sub{color:var(--text2);font-size:14px;margin-bottom:28px}
+.login-input{
+  width:100%;padding:14px 16px;background:var(--surface2);
+  border:1.5px solid var(--border);border-radius:12px;
+  color:var(--text);font-size:14px;outline:none;transition:border-color .2s;
+  font-family:'Inter',sans-serif;margin-bottom:12px;
+}
+.login-input:focus{border-color:var(--accent)}
+.login-btn{
+  width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border:none;border-radius:12px;color:#fff;font-weight:700;font-size:15px;
+  cursor:pointer;transition:all .2s;letter-spacing:.3px;
+}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(88,101,242,0.4)}
+.login-error{color:var(--red);font-size:13px;margin-top:8px;display:none}
+
+/* PAGES */
+.page{display:none;padding:24px 28px;animation:fadeIn .2s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:28px}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;transition:all .2s;cursor:default;
+}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:var(--shadow)}
+.stat-icon{font-size:28px;margin-bottom:12px}
+.stat-label{font-size:12px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:800;line-height:1}
+.stat-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.stat-card.gold .stat-value{color:var(--gold)}
+.stat-card.green .stat-value{color:var(--green)}
+.stat-card.red .stat-value{color:var(--red)}
+.stat-card.purple .stat-value{color:var(--purple)}
+
+/* SECTION */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
+.section-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.section-body{padding:20px}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.full{grid-template-columns:1fr}
+.input-group{display:flex;flex-direction:column;gap:6px}
+.input-label{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.input{
+  padding:11px 14px;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:14px;outline:none;
+  transition:border-color .2s;font-family:'Inter',sans-serif;width:100%;
+}
+.input:focus{border-color:var(--accent)}
+.input::placeholder{color:var(--text2)}
+select.input{cursor:pointer}
+textarea.input{resize:vertical;min-height:80px}
+.btn{
+  padding:10px 20px;border-radius:10px;border:none;font-weight:600;
+  font-size:13px;cursor:pointer;transition:all .2s;display:inline-flex;
+  align-items:center;gap:6px;letter-spacing:.2px;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover{box-shadow:0 6px 20px rgba(88,101,242,.35)}
+.btn-success{background:var(--green);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-warning{background:var(--orange);color:#fff}
+.btn-ghost{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--surface3)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 14px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;gap:3px}
+.badge-green{background:rgba(35,209,96,.15);color:var(--green)}
+.badge-red{background:rgba(255,71,87,.15);color:var(--red)}
+.badge-gold{background:rgba(246,201,14,.15);color:var(--gold)}
+.badge-purple{background:rgba(162,155,254,.15);color:var(--purple)}
+.badge-gray{background:rgba(136,136,170,.15);color:var(--text2)}
+
+/* SEARCH */
+.search-bar{
+  display:flex;gap:10px;margin-bottom:16px;
+}
+.search-input{flex:1;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif}
+.search-input:focus{border-color:var(--accent)}
+
+/* TABS */
+.tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px;margin-bottom:20px}
+.tab{flex:1;padding:8px;text-align:center;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;color:var(--text2)}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+
+/* ALERT */
+.alert{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:12px;display:flex;gap:8px;align-items:center}
+.alert-success{background:rgba(35,209,96,.1);border:1px solid rgba(35,209,96,.3);color:var(--green)}
+.alert-error{background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);color:var(--red)}
+.alert-warning{background:rgba(253,150,68,.1);border:1px solid rgba(253,150,68,.3);color:var(--orange)}
+
+/* TOGGLE */
+.toggle-wrap{display:flex;align-items:center;gap:10px}
+.toggle{position:relative;width:44px;height:24px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--surface3);border-radius:12px;transition:.3s;border:1px solid var(--border)}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle-slider::before{content:'';position:absolute;height:18px;width:18px;left:2px;bottom:2px;background:white;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider::before{transform:translateX(20px)}
+
+/* PROGRESS */
+.progress-bar{height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:2px;transition:width .3s}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text2);font-size:14px}
+.spinner{width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-right:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOAST */
+.toast-container{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast-item{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:12px 18px;font-size:13px;font-weight:500;min-width:250px;
+  display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,.4);
+  animation:slideIn .3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast-item.success{border-color:rgba(35,209,96,.4)}
+.toast-item.error{border-color:rgba(255,71,87,.4)}
+.toast-item.info{border-color:rgba(88,101,242,.4)}
+
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s;display:flex;align-items:center;justify-content:center}
+.modal-backdrop.active{opacity:1;pointer-events:all}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:480px;max-width:90vw;transform:scale(.95);transition:transform .2s;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.modal-backdrop.active .modal-box{transform:scale(1)}
+.modal-title-inner{font-size:18px;font-weight:700;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+.modal-close-btn{cursor:pointer;color:var(--text2);font-size:20px;line-height:1;transition:color .2s}
+.modal-close-btn:hover{color:var(--text)}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-row{grid-template-columns:1fr}
+}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px}
+.empty-state .empty-text{font-size:14px}
+
+.user-card{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.user-card:last-child{border-bottom:none}
+.user-avatar-sm{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.user-actions{display:flex;gap:6px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🎰</div>
+    <div class="login-title">Admin Panel</div>
+    <div class="login-sub">Casino boshqaruv markazi</div>
+    <input class="login-input" type="password" id="loginToken" placeholder="Admin token kiriting..." autocomplete="off">
+    <button class="login-btn" onclick="doLogin()">🔐 Kirish</button>
+    <div class="login-error" id="loginError">❌ Token noto'g'ri!</div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-icon">🎰</span>
+    Casino Admin
+    <span class="logo-badge">LIVE</span>
+  </div>
+  <div class="nav">
+    <div class="nav-item active" onclick="showPage('dashboard')"><span class="icon">📊</span> Dashboard</div>
+    <div class="nav-item" onclick="showPage('users')"><span class="icon">👥</span> Foydalanuvchilar</div>
+    <div class="nav-item" onclick="showPage('balance')"><span class="icon">💰</span> Balans boshqaruvi</div>
+    <div class="nav-item" onclick="showPage('games')"><span class="icon">🎮</span> O'yinlar tarixi</div>
+    <div class="nav-item" onclick="showPage('transactions')"><span class="icon">💳</span> Tranzaksiyalar</div>
+    <div class="nav-item" onclick="showPage('broadcast')"><span class="icon">📢</span> Xabar yuborish</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" onclick="showPage('settings')"><span class="icon">⚙️</span> Sozlamalar</div>
+  </div>
+  <div class="sidebar-bottom">
+    <div class="admin-badge"><div class="admin-dot"></div> Admin faol</div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">📊 Dashboard</div>
+    <div class="topbar-right">
+      <div class="topbar-btn" onclick="refreshCurrent()">🔄 Yangilash</div>
+      <div class="topbar-btn" onclick="doLogout()">🚪 Chiqish</div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid" id="statsGrid">
+      <div class="loading"><div class="spinner"></div>Yuklanmoqda...</div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">👥 Oxirgi foydalanuvchilar</div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('users')">Barchasi →</button>
+      </div>
+      <div class="section-body" id="dashRecentUsers">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🎮 Oxirgi o'yinlar</div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('games')">Barchasi →</button>
+      </div>
+      <div class="section-body" id="dashRecentGames">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USERS -->
+  <div class="page" id="page-users">
+    <div class="search-bar">
+      <input class="search-input" id="userSearch" type="text" placeholder="🔍 ID, ism yoki username bo'yicha qidiring...">
+      <button class="btn btn-primary" onclick="searchUsers()">Qidirish</button>
+      <button class="btn btn-ghost" onclick="loadUsers()">Barchasi</button>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">👥 Foydalanuvchilar</div>
+        <span class="badge badge-gray" id="userCount">0 ta</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Ism</th><th>Username</th><th>Balans</th>
+              <th>O'yinlar</th><th>Status</th><th>Amallar</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BALANCE -->
+  <div class="page" id="page-balance">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section">
+        <div class="section-header"><div class="section-title">➕ Balans Qo'shish</div></div>
+        <div class="section-body">
+          <div class="input-group" style="margin-bottom:12px">
+            <label class="input-label">Telegram ID</label>
+            <input class="input" id="addBalanceId" type="number" placeholder="Foydalanuvchi ID">
+          </div>
+          <div class="input-group" style="margin-bottom:12px">
+            <label class="input-label">Miqdor (Stars)</label>
+            <input class="input" id="addBalanceAmount" type="number" placeholder="100">
+          </div>
+          <div class="input-group" style="margin-bottom:16px">
+            <label class="input-label">Sabab</label>
+            <input class="input" id="addBalanceDesc" type="text" placeholder="Admin qo'shdi">
+          </div>
+          <button class="btn btn-success" style="width:100%" onclick="addBalance()">➕ Qo'shish</button>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">➖ Balans Ayirish</div></div>
+        <div class="section-body">
+          <div class="input-group" style="margin-bottom:12px">
+            <label class="input-label">Telegram ID</label>
+            <input class="input" id="removeBalanceId" type="number" placeholder="Foydalanuvchi ID">
+          </div>
+          <div class="input-group" style="margin-bottom:12px">
+            <label class="input-label">Miqdor (Stars)</label>
+            <input class="input" id="removeBalanceAmount" type="number" placeholder="100">
+          </div>
+          <div class="input-group" style="margin-bottom:16px">
+            <label class="input-label">Sabab</label>
+            <input class="input" id="removeBalanceDesc" type="text" placeholder="Admin ayirdi">
+          </div>
+          <button class="btn btn-danger" style="width:100%" onclick="removeBalance()">➖ Ayirish</button>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">👤 Foydalanuvchi ma'lumotlari</div></div>
+      <div class="section-body">
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <input class="input" id="lookupId" type="number" placeholder="Telegram ID kiriting...">
+          <button class="btn btn-primary" onclick="lookupUser()">Ko'rish</button>
+        </div>
+        <div id="lookupResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAMES -->
+  <div class="page" id="page-games">
+    <div class="section">
+      <div class="section-header"><div class="section-title">🎮 O'yinlar tarixi</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Room ID</th><th>Bank</th><th>Komissiya</th><th>G'olib</th><th>NFT</th><th>Vaqt</th></tr>
+          </thead>
+          <tbody id="gamesTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSACTIONS -->
+  <div class="page" id="page-transactions">
+    <div class="section">
+      <div class="section-header"><div class="section-title">💳 Oxirgi tranzaksiyalar</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Foydalanuvchi</th><th>Tur</th><th>Miqdor</th><th>Tavsif</th><th>Vaqt</th></tr>
+          </thead>
+          <tbody id="txTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BROADCAST -->
+  <div class="page" id="page-broadcast">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section">
+        <div class="section-header"><div class="section-title">📢 Hammaga xabar</div></div>
+        <div class="section-body">
+          <div class="input-group" style="margin-bottom:16px">
+            <label class="input-label">Xabar matni</label>
+            <textarea class="input" id="broadcastMsg" rows="6" placeholder="Xabar yozing... (HTML teglari ishlaydi)"></textarea>
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="doBroadcast()">📢 Hammaga yuborish</button>
+          <div id="broadcastResult" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">💬 Alohida xabar</div></div>
+        <div class="section-body">
+          <div class="input-group" style="margin-bottom:12px">
+            <label class="input-label">Telegram ID</label>
+            <input class="input" id="msgUserId" type="number" placeholder="Foydalanuvchi ID">
+          </div>
+          <div class="input-group" style="margin-bottom:16px">
+            <label class="input-label">Xabar</label>
+            <textarea class="input" id="msgText" rows="4" placeholder="Xabar..."></textarea>
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="sendMessage()">💬 Yuborish</button>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">🔨 Tezkor amallar</div></div>
+      <div class="section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="input-label" style="margin-bottom:8px">BAN qilish</div>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="banId" type="number" placeholder="Telegram ID">
+              <button class="btn btn-danger" onclick="banUser()">Ban</button>
+            </div>
+          </div>
+          <div>
+            <div class="input-label" style="margin-bottom:8px">UNBAN qilish</div>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="unbanId" type="number" placeholder="Telegram ID">
+              <button class="btn btn-success" onclick="unbanUser()">Unban</button>
+            </div>
+          </div>
+          <div>
+            <div class="input-label" style="margin-bottom:8px">Admin berish</div>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="grantId" type="number" placeholder="Telegram ID">
+              <button class="btn btn-warning" onclick="grantAdmin()">Berish</button>
+            </div>
+          </div>
+          <div>
+            <div class="input-label" style="margin-bottom:8px">Admin olish</div>
+            <div style="display:flex;gap:8px">
+              <input class="input" id="revokeId" type="number" placeholder="Telegram ID">
+              <button class="btn btn-ghost" onclick="revokeAdmin()">Olish</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section">
+        <div class="section-header"><div class="section-title">⚙️ O'yin sozlamalari</div></div>
+        <div class="section-body" id="settingsForm">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">📊 Tizim holati</div></div>
+        <div class="section-body">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-weight:600;font-size:14px">Bot holati</div><div style="font-size:12px;color:var(--text2)">Telegram bot</div></div>
+              <span class="badge badge-green">🟢 Faol</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-weight:600;font-size:14px">WebSocket</div><div style="font-size:12px;color:var(--text2)">Real-time ulanish</div></div>
+              <span class="badge badge-green">🟢 Ishlaydi</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-weight:600;font-size:14px">Ma'lumotlar bazasi</div><div style="font-size:12px;color:var(--text2)">SQLite</div></div>
+              <span class="badge badge-green">🟢 OK</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-weight:600;font-size:14px">API</div><div style="font-size:12px;color:var(--text2)">FastAPI server</div></div>
+              <span class="badge badge-green">🟢 OK</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div class="modal-backdrop" id="userModal">
+  <div class="modal-box">
+    <div class="modal-title-inner">
+      <span id="userModalTitle">Foydalanuvchi</span>
+      <span class="modal-close-btn" onclick="closeUserModal()">✕</span>
+    </div>
+    <div id="userModalContent"></div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+let adminToken = localStorage.getItem('admin_token') || '';
+let currentPage = 'dashboard';
+
+// Get token from URL if present
+const urlParams = new URLSearchParams(window.location.search);
+const urlToken = urlParams.get('token');
+if (urlToken) { adminToken = urlToken; localStorage.setItem('admin_token', urlToken); }
+
+// ─── AUTH ─────────────────────────────────────────────────
+async function doLogin() {
+  const t = document.getElementById('loginToken').value.trim();
+  if (!t) return;
+  try {
+    const resp = await apiCall('POST', '/api/admin/verify', {}, t);
+    adminToken = t;
+    localStorage.setItem('admin_token', t);
+    document.getElementById('loginScreen').style.display = 'none';
+    loadDashboard();
+  } catch(e) {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+function doLogout() {
+  localStorage.removeItem('admin_token');
+  adminToken = '';
+  location.reload();
+}
+
+// Auto-login if token exists
+if (adminToken) {
+  apiCall('POST', '/api/admin/verify', {}, adminToken).then(() => {
+    document.getElementById('loginScreen').style.display = 'none';
+    loadDashboard();
+  }).catch(() => {
+    localStorage.removeItem('admin_token');
+    adminToken = '';
+  });
+}
+
+document.getElementById('loginToken').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ─── API ──────────────────────────────────────────────────
+async function apiCall(method, path, body, token) {
+  const tk = token || adminToken;
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': tk },
+  };
+  if (body && method !== 'GET') opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ detail: 'Xato' }));
+    throw new Error(e.detail || 'Server xatosi');
+  }
+  return r.json();
+}
+
+// ─── PAGES ────────────────────────────────────────────────
+const pageTitles = {
+  dashboard: '📊 Dashboard',
+  users: '👥 Foydalanuvchilar',
+  balance: '💰 Balans boshqaruvi',
+  games: '🎮 O\'yinlar tarixi',
+  transactions: '💳 Tranzaksiyalar',
+  broadcast: '📢 Xabar yuborish',
+  settings: '⚙️ Sozlamalar',
+};
+
+function showPage(name) {
+  currentPage = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase().includes(name.slice(0,4).toLowerCase()));
+  });
+  document.getElementById('topbarTitle').textContent = pageTitles[name] || name;
+  const loaders = { dashboard: loadDashboard, users: loadUsers, games: loadGames, transactions: loadTransactions, settings: loadSettings };
+  if (loaders[name]) loaders[name]();
+}
+
+function refreshCurrent() { showPage(currentPage); }
+
+// ─── DASHBOARD ────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const stats = await apiCall('GET', '/api/admin/stats');
+    renderStats(stats);
+    loadDashUsers();
+    loadDashGames();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function renderStats(s) {
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Jami foydalanuvchilar</div><div class="stat-value">${s.total_users.toLocaleString()}</div><div class="stat-sub">+${s.today_users} bugun</div></div>
+    <div class="stat-card gold"><div class="stat-icon">⭐</div><div class="stat-label">Jami bank</div><div class="stat-value">${(s.total_bank||0).toLocaleString()}</div><div class="stat-sub">Barcha o'yinlar</div></div>
+    <div class="stat-card green"><div class="stat-icon">🏆</div><div class="stat-label">Jami komissiya</div><div class="stat-value">${(s.total_commission||0).toLocaleString()}</div><div class="stat-sub">⭐ Stars</div></div>
+    <div class="stat-card"><div class="stat-icon">🎮</div><div class="stat-label">Jami o'yinlar</div><div class="stat-value">${s.total_games.toLocaleString()}</div><div class="stat-sub">+${s.today_games} bugun</div></div>
+    <div class="stat-card purple"><div class="stat-icon">🎡</div><div class="stat-label">Faol o'yinlar</div><div class="stat-value">${s.active_games}</div><div class="stat-sub">Hozir live</div></div>
+    <div class="stat-card red"><div class="stat-icon">🚫</div><div class="stat-label">Bloklangan</div><div class="stat-value">${s.banned_users}</div><div class="stat-sub">Foydalanuvchilar</div></div>
+  `;
+}
+
+async function loadDashUsers() {
+  try {
+    const data = await apiCall('GET', '/api/admin/users?limit=5');
+    document.getElementById('dashRecentUsers').innerHTML = data.users.map(u => userCardHtml(u)).join('') || '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Foydalanuvchilar yo\'q</div></div>';
+  } catch(e) {}
+}
+
+async function loadDashGames() {
+  try {
+    const data = await apiCall('GET', '/api/admin/games?limit=5');
+    document.getElementById('dashRecentGames').innerHTML = data.games.length
+      ? `<div class="table-wrap"><table><thead><tr><th>Room</th><th>Bank</th><th>Komissiya</th><th>Vaqt</th></tr></thead><tbody>${data.games.map(g => `<tr><td><code>#${g.room_id.slice(-6)}</code></td><td><span style="color:var(--gold)">⭐${(g.total_bank||0).toLocaleString()}</span></td><td>⭐${(g.commission||0).toLocaleString()}</td><td>${g.finished_at?.slice(0,16)||'-'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty-state"><div class="empty-icon">🎮</div><div class="empty-text">O\'yinlar yo\'q</div></div>';
+  } catch(e) {}
+}
+
+// ─── USERS ────────────────────────────────────────────────
+async function loadUsers() {
+  const tbody = document.getElementById('usersTable');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div>Yuklanmoqda...</div></td></tr>';
+  try {
+    const data = await apiCall('GET', '/api/admin/users?limit=100');
+    document.getElementById('userCount').textContent = data.users.length + ' ta';
+    tbody.innerHTML = data.users.map(u => userRowHtml(u)).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px">Foydalanuvchilar yo\'q</td></tr>';
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="color:var(--red);padding:20px">${e.message}</td></tr>`; }
+}
+
+async function searchUsers() {
+  const q = document.getElementById('userSearch').value.trim();
+  if (!q) return loadUsers();
+  const tbody = document.getElementById('usersTable');
+  try {
+    const data = await apiCall('GET', `/api/admin/users?search=${encodeURIComponent(q)}&limit=50`);
+    document.getElementById('userCount').textContent = data.users.length + ' ta';
+    tbody.innerHTML = data.users.map(u => userRowHtml(u)).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px">Topilmadi</td></tr>';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function userRowHtml(u) {
+  const statusBadge = u.is_banned
+    ? '<span class="badge badge-red">🚫 Ban</span>'
+    : u.is_admin
+      ? '<span class="badge badge-gold">👑 Admin</span>'
+      : '<span class="badge badge-green">✅ Faol</span>';
+  return `<tr>
+    <td><code>${u.telegram_id}</code></td>
+    <td><div style="font-weight:600">${escHtml(u.first_name||'')} ${escHtml(u.last_name||'')}</div></td>
+    <td>${u.username ? '@'+u.username : '<span style="color:var(--text2)">-</span>'}</td>
+    <td><span style="color:var(--gold);font-weight:700">⭐ ${(u.balance||0).toLocaleString()}</span></td>
+    <td>${u.total_games||0} / <span style="color:var(--green)">${u.total_wins||0}</span></td>
+    <td>${statusBadge}</td>
+    <td>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="openUserModal(${u.telegram_id})">👤</button>
+        <button class="btn ${u.is_banned?'btn-success':'btn-danger'} btn-sm" onclick="${u.is_banned?'doUnban':'doBan'}(${u.telegram_id})">${u.is_banned?'Unban':'Ban'}</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function userCardHtml(u) {
+  const init = (u.first_name||'?')[0].toUpperCase();
+  return `<div class="user-card">
+    <div class="user-avatar-sm">${init}</div>
+    <div class="user-info">
+      <div class="user-name">${escHtml(u.first_name||'')} ${escHtml(u.last_name||'')} ${u.is_admin?'👑':''}</div>
+      <div class="user-meta">ID: ${u.telegram_id} • ⭐${(u.balance||0).toLocaleString()} • ${u.total_games||0} o'yin</div>
+    </div>
+    <div class="user-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openUserModal(${u.telegram_id})">Ko'rish</button>
+    </div>
+  </div>`;
+}
+
+// ─── USER MODAL ───────────────────────────────────────────
+async function openUserModal(tgId) {
+  document.getElementById('userModal').classList.add('active');
+  document.getElementById('userModalTitle').textContent = `Foydalanuvchi #${tgId}`;
+  document.getElementById('userModalContent').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const data = await apiCall('GET', `/api/admin/user/${tgId}`);
+    const u = data.user;
+    document.getElementById('userModalContent').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;font-size:13px">
+        <div><div class="input-label">Ism</div><div style="font-weight:600">${escHtml(u.first_name||'-')} ${escHtml(u.last_name||'')}</div></div>
+        <div><div class="input-label">Username</div><div>@${u.username||'yo\'q'}</div></div>
+        <div><div class="input-label">Telegram ID</div><div><code>${u.telegram_id}</code></div></div>
+        <div><div class="input-label">Balans</div><div style="color:var(--gold);font-weight:700">⭐ ${(u.balance||0).toLocaleString()}</div></div>
+        <div><div class="input-label">O'yinlar</div><div>${u.total_games||0}</div></div>
+        <div><div class="input-label">G'alabalar</div><div style="color:var(--green)">${u.total_wins||0}</div></div>
+        <div><div class="input-label">Jami stavka</div><div>⭐ ${(u.total_wagered||0).toLocaleString()}</div></div>
+        <div><div class="input-label">Jami yutgan</div><div>⭐ ${(u.total_won||0).toLocaleString()}</div></div>
+      </div>
+      <div class="btn-group" style="margin-bottom:16px">
+        ${u.is_banned
+          ? `<button class="btn btn-success btn-sm" onclick="doUnban(${u.telegram_id});closeUserModal()">✅ Unban</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="doBan(${u.telegram_id});closeUserModal()">🚫 Ban</button>`}
+        ${u.is_admin
+          ? `<button class="btn btn-ghost btn-sm" onclick="doRevokeAdmin(${u.telegram_id});closeUserModal()">Admin olish</button>`
+          : `<button class="btn btn-warning btn-sm" onclick="doGrantAdmin(${u.telegram_id});closeUserModal()">👑 Admin berish</button>`}
+      </div>
+      <div class="input-label" style="margin-bottom:8px">So'nggi tranzaksiyalar</div>
+      ${data.transactions.map(t => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${t.description?.slice(0,35)||t.type}</span><span style="color:${t.amount>0?'var(--green)':'var(--red)';};font-weight:700">${t.amount>0?'+':''}⭐${t.amount}</span></div>`).join('')||'<div style="color:var(--text2);font-size:13px">Tranzaksiya yo\'q</div>'}
+    `;
+  } catch(e) { document.getElementById('userModalContent').innerHTML = `<div style="color:var(--red)">${e.message}</div>`; }
+}
+function closeUserModal() { document.getElementById('userModal').classList.remove('active'); }
+document.getElementById('userModal').addEventListener('click', e => { if (e.target.id === 'userModal') closeUserModal(); });
+
+// ─── BALANCE ──────────────────────────────────────────────
+async function addBalance() {
+  const id = parseInt(document.getElementById('addBalanceId').value);
+  const amt = parseInt(document.getElementById('addBalanceAmount').value);
+  const desc = document.getElementById('addBalanceDesc').value;
+  if (!id || !amt || amt <= 0) return toast('⚠️ ID va miqdorni to\'ldiring', 'error');
+  try {
+    const r = await apiCall('POST', '/api/admin/balance/add', { telegram_id: id, amount: amt, description: desc });
+    toast(`✅ ⭐${amt} qo'shildi. Yangi balans: ⭐${r.balance}`, 'success');
+    document.getElementById('addBalanceId').value = '';
+    document.getElementById('addBalanceAmount').value = '';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function removeBalance() {
+  const id = parseInt(document.getElementById('removeBalanceId').value);
+  const amt = parseInt(document.getElementById('removeBalanceAmount').value);
+  const desc = document.getElementById('removeBalanceDesc').value;
+  if (!id || !amt || amt <= 0) return toast('⚠️ ID va miqdorni to\'ldiring', 'error');
+  try {
+    const r = await apiCall('POST', '/api/admin/balance/remove', { telegram_id: id, amount: amt, description: desc });
+    toast(`✅ ⭐${amt} ayirildi. Yangi balans: ⭐${r.balance}`, 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function lookupUser() {
+  const id = parseInt(document.getElementById('lookupId').value);
+  if (!id) return;
+  try {
+    const data = await apiCall('GET', `/api/admin/user/${id}`);
+    const u = data.user;
+    document.getElementById('lookupResult').innerHTML = `
+      <div class="alert ${u.is_banned?'alert-error':u.is_admin?'alert-warning':'alert-success'}">
+        <div>
+          <strong>${escHtml(u.first_name||'')} ${escHtml(u.last_name||'')}</strong>
+          ${u.is_admin?' 👑':''} ${u.is_banned?' 🚫':''}<br>
+          <small>ID: ${u.telegram_id} | ⭐ ${(u.balance||0).toLocaleString()} | ${u.total_games||0} o'yin</small>
+        </div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('lookupResult').innerHTML = `<div class="alert alert-error">❌ ${e.message}</div>`;
+  }
+}
+
+// ─── GAMES ────────────────────────────────────────────────
+async function loadGames() {
+  const tbody = document.getElementById('gamesTable');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const data = await apiCall('GET', '/api/admin/games?limit=50');
+    tbody.innerHTML = data.games.map((g, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><code>#${g.room_id.slice(-6)}</code></td>
+        <td><span style="color:var(--gold)">⭐ ${(g.total_bank||0).toLocaleString()}</span></td>
+        <td><span style="color:var(--green)">⭐ ${(g.commission||0).toLocaleString()}</span></td>
+        <td>${g.winner_telegram_id ? `<code>${g.winner_telegram_id}</code> (⭐${(g.winner_amount||0).toLocaleString()})` : '-'}</td>
+        <td>${g.nft_prize ? '<span class="badge badge-purple">🎁 NFT</span>' : '-'}</td>
+        <td>${(g.finished_at||g.created_at)?.slice(0,16)||'-'}</td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:20px">O\'yinlar yo\'q</td></tr>';
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="color:var(--red);padding:20px">${e.message}</td></tr>`; }
+}
+
+// ─── TRANSACTIONS ─────────────────────────────────────────
+async function loadTransactions() {
+  const tbody = document.getElementById('txTable');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const data = await apiCall('GET', '/api/admin/transactions?limit=100');
+    tbody.innerHTML = data.transactions.map((t, i) => {
+      const typeMap = {deposit:'💳 Depozit',game_win:'🏆 G\'alaba',game_bet:'🎮 Stavka',game_loss:'😔 Yutqizdi',admin_add:'➕ Admin',admin_remove:'➖ Admin',commission:'🏦 Komissiya'};
+      return `<tr>
+        <td>${i+1}</td>
+        <td><code>${t.telegram_id}</code></td>
+        <td>${typeMap[t.type]||t.type}</td>
+        <td><span style="color:${t.amount>0?'var(--green)':'var(--red)'};font-weight:700">${t.amount>0?'+':''}⭐${t.amount}</span></td>
+        <td style="color:var(--text2);font-size:12px">${(t.description||'').slice(0,40)}</td>
+        <td style="font-size:12px">${t.created_at?.slice(0,16)||'-'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px">Tranzaksiya yo\'q</td></tr>';
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);padding:20px">${e.message}</td></tr>`; }
+}
+
+// ─── BROADCAST ────────────────────────────────────────────
+async function doBroadcast() {
+  const msg = document.getElementById('broadcastMsg').value.trim();
+  if (!msg) return toast('⚠️ Xabar matnini kiriting', 'error');
+  const el = document.getElementById('broadcastResult');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Yuborilmoqda...</div>';
+  try {
+    const r = await apiCall('POST', '/api/admin/broadcast', { message: msg });
+    el.innerHTML = `<div class="alert alert-success">✅ Yuborildi: ${r.sent} ta | Xato: ${r.failed} ta</div>`;
+  } catch(e) { el.innerHTML = `<div class="alert alert-error">❌ ${e.message}</div>`; }
+}
+
+async function sendMessage() {
+  const id = parseInt(document.getElementById('msgUserId').value);
+  const msg = document.getElementById('msgText').value.trim();
+  if (!id || !msg) return toast('⚠️ ID va xabarni to\'ldiring', 'error');
+  try {
+    await apiCall('POST', '/api/admin/message', { telegram_id: id, message: msg });
+    toast('✅ Xabar yuborildi!', 'success');
+    document.getElementById('msgText').value = '';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function banUser() {
+  const id = parseInt(document.getElementById('banId').value);
+  if (!id) return toast('⚠️ ID kiriting', 'error');
+  await doBan(id);
+}
+async function unbanUser() {
+  const id = parseInt(document.getElementById('unbanId').value);
+  if (!id) return toast('⚠️ ID kiriting', 'error');
+  await doUnban(id);
+}
+async function grantAdmin() {
+  const id = parseInt(document.getElementById('grantId').value);
+  if (!id) return toast('⚠️ ID kiriting', 'error');
+  await doGrantAdmin(id);
+}
+async function revokeAdmin() {
+  const id = parseInt(document.getElementById('revokeId').value);
+  if (!id) return toast('⚠️ ID kiriting', 'error');
+  await doRevokeAdmin(id);
+}
+async function doBan(id) {
+  try { await apiCall('POST', '/api/admin/ban', { telegram_id: id }); toast(`🚫 ${id} bloklandi`, 'success'); loadUsers(); }
+  catch(e) { toast('❌ '+e.message, 'error'); }
+}
+async function doUnban(id) {
+  try { await apiCall('POST', '/api/admin/unban', { telegram_id: id }); toast(`✅ ${id} blokdan chiqarildi`, 'success'); loadUsers(); }
+  catch(e) { toast('❌ '+e.message, 'error'); }
+}
+async function doGrantAdmin(id) {
+  try { await apiCall('POST', '/api/admin/admin/grant', { telegram_id: id }); toast(`👑 ${id} ga admin berildi`, 'success'); loadUsers(); }
+  catch(e) { toast('❌ '+e.message, 'error'); }
+}
+async function doRevokeAdmin(id) {
+  try { await apiCall('POST', '/api/admin/admin/revoke', { telegram_id: id }); toast(`✅ ${id} dan admin olindi`, 'success'); loadUsers(); }
+  catch(e) { toast('❌ '+e.message, 'error'); }
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const data = await apiCall('GET', '/api/admin/settings');
+    const settingDefs = [
+      { key:'commission_rate', label:'Komissiya (%)', type:'number', min:0, max:50, desc:'O\'yin bankidan olinadigan %' },
+      { key:'min_bet', label:'Minimal stavka (Stars)', type:'number', min:1, desc:'Eng kam stavka miqdori' },
+      { key:'max_bet', label:'Maksimal stavka (Stars)', type:'number', min:1, desc:'Eng ko\'p stavka miqdori' },
+      { key:'game_timer', label:'O\'yin taymeri (soniya)', type:'number', min:10, max:120, desc:'Spin boshlanishigacha vaqt' },
+      { key:'max_players', label:'Maksimal o\'yinchilar', type:'number', min:2, max:20, desc:'Bir xonada nechta o\'yinchi' },
+      { key:'nft_threshold', label:'NFT chegarasi (Stars)', type:'number', min:1, desc:'G\'alaba ushbu miqdordan katta bo\'lsa NFT' },
+      { key:'welcome_bonus', label:'Yangi foydalanuvchi bonusi', type:'number', min:0, desc:'Ro\'yxatdan o\'tganda beriladigan stars' },
+      { key:'maintenance_mode', label:'Texnik ishlar rejimi', type:'select', options:['0','1'], labels:['Yoq (Faol)','Ha (Texnik ishlar)'] },
+    ];
+    const html = settingDefs.map(s => {
+      const val = data[s.key] || '0';
+      if (s.type === 'select') {
+        const opts = s.options.map((o, i) => `<option value="${o}" ${o==val?'selected':''}>${s.labels?.[i]||o}</option>`).join('');
+        return `<div style="margin-bottom:16px"><div class="input-label">${s.label}</div><select class="input" id="set_${s.key}">${opts}</select><div style="font-size:11px;color:var(--text2);margin-top:4px">${s.desc||''}</div></div>`;
+      }
+      return `<div style="margin-bottom:16px"><div class="input-label">${s.label}</div><input class="input" type="number" id="set_${s.key}" value="${val}" min="${s.min||0}" ${s.max?`max="${s.max}"`:''}>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">${s.desc||''}</div></div>`;
+    }).join('');
+    document.getElementById('settingsForm').innerHTML = html + `<button class="btn btn-primary" style="width:100%" onclick="saveSettings()">💾 Saqlash</button>`;
+  } catch(e) { document.getElementById('settingsForm').innerHTML = `<div style="color:var(--red)">${e.message}</div>`; }
+}
+
+async function saveSettings() {
+  const keys = ['commission_rate','min_bet','max_bet','game_timer','max_players','nft_threshold','welcome_bonus','maintenance_mode'];
+  let ok = 0;
+  for (const key of keys) {
+    const el = document.getElementById('set_' + key);
+    if (el) {
+      try { await apiCall('POST', '/api/admin/settings', { key, value: el.value }); ok++; }
+      catch(e) {}
+    }
+  }
+  toast(`✅ ${ok} ta sozlama saqlandi`, 'success');
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 3000);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ─── KEYBOARD ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('active'));
+  }
+});
+</script>
+</body>
+</html>
