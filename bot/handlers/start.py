@@ -94,11 +94,12 @@ async def cmd_profile(message: Message):
         await message.answer("❌ Avval /start ni bosing")
         return
     win_rate = (user['total_wins'] / user['total_games'] * 100) if user['total_games'] > 0 else 0
+    username_val = user.get('username') or 'yo’q'
     await message.answer(
         f"👤 <b>Profil</b>\n\n"
         f"🆔 ID: <code>{user['telegram_id']}</code>\n"
         f"👤 Ism: {user['first_name']} {user['last_name']}\n"
-        f"📛 Username: @{user.get('username', 'yo\\'q')}\n\n"
+        f"📛 Username: @{username_val}\n\n"
         f"💼 Balans: ⭐ <b>{user['balance']:,}</b>\n"
         f"🎲 O'yinlar: {user['total_games']}\n"
         f"🏆 G'alabalar: {user['total_wins']}\n"
