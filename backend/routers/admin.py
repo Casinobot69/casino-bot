@@ -158,10 +158,11 @@ async def admin_ban(body: BanAction, token: str = Header(alias="X-Admin-Token"))
         await db.commit()
     try:
         from bot.main import bot
+        reason_str = body.reason or "Ko'rsatilmagan"
         await bot.send_message(
             body.telegram_id,
             f"🚫 <b>Hisobingiz bloklandi</b>\n\n"
-            f"Sabab: {body.reason or 'Ko\\'rsatilmagan'}\n\n"
+            f"Sabab: {reason_str}\n\n"
             f"Murojaat uchun: admin bilan bog'laning",
             parse_mode="HTML"
         )
