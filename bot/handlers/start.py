@@ -199,3 +199,28 @@ async def cmd_help(message: Message):
         "❓ Muammo bo'lsa adminlarga murojaat qiling.",
         parse_mode="HTML"
     )
+
+# Legacy reply keyboard button mapping
+@router.message(F.text == "O'yinni boshlash")
+async def text_play(message: Message):
+    await cmd_play(message)
+
+@router.message(F.text == "Hisobim")
+async def text_balance(message: Message):
+    await cmd_balance(message)
+
+@router.message(F.text == "Statistika")
+async def text_stats(message: Message):
+    user = await get_user(message.from_user.id)
+    if user and user.get("is_admin"):
+        from bot.handlers.admin import cmd_admin
+        await cmd_admin(message)
+    else:
+        await cmd_profile(message)
+
+@router.message(F.text == "Sozlamalar")
+async def text_settings(message: Message):
+    user = await get_user(message.from_user.id)
+    if user and user.get("is_admin"):
+        from bot.handlers.admin import cmd_admin
+        await cmd_admin(message)

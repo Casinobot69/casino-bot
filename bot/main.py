@@ -21,7 +21,7 @@ dp = Dispatcher()
 
 
 async def start_bot():
-    from bot.handlers import start, payment
+    from bot.handlers import start, payment, admin
     from bot.middlewares.ban_check import BanCheckMiddleware
 
     dp.message.middleware(BanCheckMiddleware())
@@ -29,6 +29,7 @@ async def start_bot():
 
     dp.include_router(start.router)
     dp.include_router(payment.router)
+    dp.include_router(admin.router)
 
     logger.info("🤖 Bot started polling...")
     await dp.start_polling(bot, allowed_updates=["message", "callback_query", "pre_checkout_query"])

@@ -302,6 +302,9 @@
     <button class="bet-btn" onclick="selectBet(500)" id="bet500"><span class="bstar">⭐</span>500</button>
     <button class="bet-btn" onclick="selectBet(2500)" id="bet2500"><span class="bstar">⭐</span>2500</button>
   </div>
+  <div class="custom-bet-wrap" style="margin-bottom:12px;">
+    <input type="number" id="customBetInput" class="input" style="padding:12px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--gold);font-weight:800;font-size:16px;text-align:center;outline:none;width:100%;" placeholder="O'z miqdoringizni yozing..." min="10" oninput="clearPresetBetHighlight()">
+  </div>
   <button class="play-btn" id="playBtn" onclick="placeBet()">🎮 Stavka qo'yish</button>
 </div>
 
@@ -531,17 +534,20 @@ function darkenColor(hex, amount) {
 }
 
 // ─── SPIN ANIMATION ──────────────────────────────────────
+// ─── SPIN ANIMATION ──────────────────────────────────────
 function spinWheel(targetAngleRad, duration, onComplete) {
   state.isSpinning = true;
   const startRotation = state.wheelRotation;
-  const extraRotations = Math.PI * 2 * 8; // 8 full spins
+  // Decelerate over 12 full rotations for a beautiful premium casino spin feel
+  const extraRotations = Math.PI * 2 * 12;
   const totalAngle = extraRotations + targetAngleRad;
   const startTime = performance.now();
 
   function animate(now) {
     const elapsed = now - startTime;
     const progress = Math.min(elapsed / duration, 1);
-    const eased = easeOutCubic(progress);
+    // easeOutQuint is much smoother for casino deceleration
+    const eased = easeOutQuint(progress);
     state.wheelRotation = startRotation + totalAngle * eased;
     drawWheel(state.wheelRotation);
 
@@ -555,7 +561,7 @@ function spinWheel(targetAngleRad, duration, onComplete) {
   state.animFrame = requestAnimationFrame(animate);
 }
 
-function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeOutQuint(t) { return 1 - Math.pow(1 - t, 5); }
 
 // ─── WEBSOCKET ───────────────────────────────────────────
 function connectWS(roomId) {
@@ -594,7 +600,7 @@ function handleWSMessage(msg) {
       updatePlayersList();
       document.getElementById('playBtn').disabled = true;
       const targetAngle = (msg.target_angle || 0) * Math.PI / 180;
-      spinWheel(targetAngle, msg.spin_duration || 5000, () => {});
+      spinWheel(targetAngle, msg.spin_duration || 6000, () => {});
       break;
     case 'game_over':
       handleGameOver(msg);
@@ -610,11 +616,37 @@ function updateUI(msg) {
   updatePlayersList();
   updateGameId(msg.room_id, msg.game_hash);
   drawWheel();
+  
+  const btn = document.getElementById('playBtn');
   if (msg.status === 'betting') {
     updateStatusBar('waiting', `⏳ ${msg.time_left}s qoldi...`);
-    document.getElementById('playBtn').disabled = state.isInGame;
+    btn.disabled = false;
+    if (state.isInGame) {
+      btn.textContent = '➕ Stavkani oshirish';
+      btn.style.background = 'linear-gradient(135deg, var(--gold), #fd9644)';
+      btn.style.color = '#000';
+    } else {
+      btn.textContent = '🎮 Stavka qo\'yish';
+      btn.style.background = 'linear-gradient(135deg, #5865f2, #7c4dff)';
+      btn.style.color = '#fff';
+    }
   } else if (msg.status === 'waiting') {
     updateStatusBar('connected', '👥 O\'yinchi kutilmoqda...');
+    btn.disabled = false;
+    if (state.isInGame) {
+      btn.textContent = '➕ Stavkani oshirish';
+      btn.style.background = 'linear-gradient(135deg, var(--gold), #fd9644)';
+      btn.style.color = '#000';
+    } else {
+      btn.textContent = '🎮 Stavka qo\'yish';
+      btn.style.background = 'linear-gradient(135deg, #5865f2, #7c4dff)';
+      btn.style.color = '#fff';
+    }
+  } else if (msg.status === 'spinning' || msg.status === 'finished') {
+    btn.disabled = true;
+    btn.textContent = '🎡 Aylanmoqda...';
+    btn.style.background = 'var(--surface2)';
+    btn.style.color = 'var(--text2)';
   }
 }
 
@@ -649,6 +681,8 @@ function handleGameOver(msg) {
     updateBankDisplay();
     document.getElementById('playBtn').disabled = false;
     document.getElementById('playBtn').textContent = '🎮 Stavka qo\'yish';
+    document.getElementById('playBtn').style.background = 'linear-gradient(135deg, #5865f2, #7c4dff)';
+    document.getElementById('playBtn').style.color = '#fff';
     updateStatusBar('connected', '👥 Yangi o\'yin kutilmoqda...');
   }, 8000);
 }
@@ -656,18 +690,34 @@ function handleGameOver(msg) {
 // ─── BET ─────────────────────────────────────────────────
 function selectBet(amount) {
   state.selectedBet = amount;
+  document.getElementById('customBetInput').value = ''; // Clear custom input when preset clicked
   [100, 500, 2500].forEach(b => {
     document.getElementById(`bet${b}`).classList.toggle('active', b === amount);
   });
 }
 
+function clearPresetBetHighlight() {
+  [100, 500, 2500].forEach(b => {
+    document.getElementById(`bet${b}`).classList.remove('active');
+  });
+}
+
 async function placeBet() {
   if (!state.user) return showToast('❌ Avval kirish kerak');
-  if (state.isInGame) return showToast('⚠️ Allaqachon o\'yindasiz!');
-  if (state.balance < state.selectedBet) {
+  
+  // Calculate bet amount
+  const customVal = parseInt(document.getElementById('customBetInput').value);
+  const betAmt = (!isNaN(customVal) && customVal > 0) ? customVal : state.selectedBet;
+  
+  if (betAmt <= 0) {
+    showToast('⚠️ Noto\'g\'ri stavka miqdori');
+    return;
+  }
+  if (state.balance < betAmt) {
     showToast('💸 Balansingiz yetarli emas!');
     return;
   }
+
   const btn = document.getElementById('playBtn');
   btn.disabled = true;
   btn.textContent = '⟳ Kutmoqda...';
@@ -675,9 +725,9 @@ async function placeBet() {
     const resp = await api('POST', '/api/game/join', {
       telegram_id: state.user.telegram_id,
       room_id: state.roomId,
-      bet: state.selectedBet,
+      bet: betAmt,
     });
-    state.balance -= state.selectedBet;
+    state.balance -= betAmt;
     updateBalanceDisplay();
     state.isInGame = true;
     state.roomId = resp.room_id;
@@ -690,11 +740,18 @@ async function placeBet() {
     updateGameId(resp.room_id, resp.room.game_hash);
     drawWheel();
     connectWS(resp.room_id);
-    btn.textContent = '✅ Kirdiniz!';
-    showToast(`✅ ⭐${state.selectedBet} stavka qo'yildi!`);
+    
+    // Clear custom input
+    document.getElementById('customBetInput').value = '';
+    
+    btn.disabled = false;
+    btn.textContent = '➕ Stavkani oshirish';
+    btn.style.background = 'linear-gradient(135deg, var(--gold), #fd9644)';
+    btn.style.color = '#000';
+    showToast(`✅ ⭐${betAmt} stavka qo'yildi!`);
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = '🎮 Stavka qo\'yish';
+    btn.textContent = state.isInGame ? '➕ Stavkani oshirish' : '🎮 Stavka qo\'yish';
     showToast('❌ ' + e.message);
   }
 }

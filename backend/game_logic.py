@@ -132,12 +132,22 @@ async def join_game_room(room_id: str, user: dict, bet: int) -> tuple[bool, str]
     min_bet = int(settings.get("min_bet", 100))
     max_bet = int(settings.get("max_bet", 2500))
 
-    if len(room.players) >= max_players:
-        return False, f"Xona to'liq ({max_players} o'yinchi)"
-    if bet < min_bet or bet > max_bet:
-        return False, f"Stavka {min_bet}-{max_bet} orasida bo'lishi kerak"
-    if room.has_player(user["telegram_id"]):
-        return False, "Siz allaqachon xonada turibsiz"
+    has_already = room.has_player(user["telegram_id"])
+
+    if has_already:
+        existing_bet = 0
+        for p in room.players:
+            if p["telegram_id"] == user["telegram_id"]:
+                existing_bet = p["bet"]
+                break
+        new_total = existing_bet + bet
+        if new_total > max_bet:
+            return False, f"Maksimal jami stavka {max_bet} bo'lishi kerak. Hozirgi stavkangiz: {existing_bet}"
+    else:
+        if len(room.players) >= max_players:
+            return False, f"Xona to'liq ({max_players} o'yinchi)"
+        if bet < min_bet or bet > max_bet:
+            return False, f"Stavka {min_bet}-{max_bet} orasida bo'lishi kerak"
 
     # Deduct balance
     try:
@@ -147,36 +157,48 @@ async def join_game_room(room_id: str, user: dict, bet: int) -> tuple[bool, str]
                 if not row or row[0] < bet:
                     return False, "Balansingiz yetarli emas"
             await db.execute("UPDATE users SET balance=balance-? WHERE telegram_id=?", (bet, user["telegram_id"]))
+            tx_desc = f"O'yin #{room_id} stavkani oshirish" if has_already else f"O'yin #{room_id} stavka"
             await db.execute(
                 """INSERT INTO transactions (user_id, telegram_id, type, amount, description, balance_before, balance_after)
                    VALUES (?, ?, 'game_bet', ?, ?, ?, ?)""",
-                (user["id"], user["telegram_id"], -bet, f"O'yin #{room_id} stavka",
+                (user["id"], user["telegram_id"], -bet, tx_desc,
                  row[0], row[0] - bet)
             )
             await db.commit()
     except Exception as e:
         return False, str(e)
 
-    color = PLAYER_COLORS[len(room.players) % len(PLAYER_COLORS)]
-    initials = (user.get("first_name", "?")[:1] + user.get("last_name", "")[:1]).upper() or "?"
-
-    room.players.append({
-        "telegram_id": user["telegram_id"],
-        "username": user.get("username", ""),
-        "first_name": user.get("first_name", ""),
-        "initials": initials,
-        "photo_url": user.get("photo_url", ""),
-        "bet": bet,
-        "color": color,
-    })
+    if has_already:
+        for p in room.players:
+            if p["telegram_id"] == user["telegram_id"]:
+                p["bet"] += bet
+                break
+    else:
+        color = PLAYER_COLORS[len(room.players) % len(PLAYER_COLORS)]
+        initials = (user.get("first_name", "?")[:1] + user.get("last_name", "")[:1]).upper() or "?"
+        room.players.append({
+            "telegram_id": user["telegram_id"],
+            "username": user.get("username", ""),
+            "first_name": user.get("first_name", ""),
+            "initials": initials,
+            "photo_url": user.get("photo_url", ""),
+            "bet": bet,
+            "color": color,
+        })
 
     # Save to DB
     if room.game_db_id:
         async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute(
-                "INSERT INTO game_players (game_id, user_id, telegram_id, username, first_name, bet_amount) VALUES (?,?,?,?,?,?)",
-                (room.game_db_id, user["id"], user["telegram_id"], user.get("username",""), user.get("first_name",""), bet)
-            )
+            if has_already:
+                await db.execute(
+                    "UPDATE game_players SET bet_amount=bet_amount+? WHERE game_id=? AND telegram_id=?",
+                    (bet, room.game_db_id, user["telegram_id"])
+                )
+            else:
+                await db.execute(
+                    "INSERT INTO game_players (game_id, user_id, telegram_id, username, first_name, bet_amount) VALUES (?,?,?,?,?,?)",
+                    (room.game_db_id, user["id"], user["telegram_id"], user.get("username",""), user.get("first_name",""), bet)
+                )
             await db.execute("UPDATE games SET total_bank=? WHERE id=?", (room.get_total_bank(), room.game_db_id))
             await db.commit()
 
@@ -235,7 +257,9 @@ async def _spin_game(room_id: str, commission_rate: int = 5):
     for i, p in enumerate(room.players):
         sector_angle = p["bet"] / total_bank * 360
         if i == winner_idx:
-            sector_start = cumulative + sector_angle / 2
+            # Stopped at random position between 10% and 90% of the sector to prevent landing exactly on borders
+            random_offset = random.uniform(0.1, 0.9) * sector_angle
+            sector_start = cumulative + random_offset
         cumulative += sector_angle
     # The pointer is at top (0 degrees). Winner angle = 360 - sector_start
     target_angle = (360 - sector_start) % 360
