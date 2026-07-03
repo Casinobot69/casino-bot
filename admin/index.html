@@ -754,7 +754,7 @@ async function openUserModal(tgId) {
           : `<button class="btn btn-warning btn-sm" onclick="doGrantAdmin(${u.telegram_id});closeUserModal()">👑 Admin berish</button>`}
       </div>
       <div class="input-label" style="margin-bottom:8px">So'nggi tranzaksiyalar</div>
-      ${data.transactions.map(t => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${t.description?.slice(0,35)||t.type}</span><span style="color:${t.amount>0?'var(--green)':'var(--red)';};font-weight:700">${t.amount>0?'+':''}⭐${t.amount}</span></div>`).join('')||'<div style="color:var(--text2);font-size:13px">Tranzaksiya yo\'q</div>'}
+      ${data.transactions.map(t => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span>${t.description?.slice(0,35)||t.type}</span><span style="color:${t.amount>0?'var(--green)':'var(--red)'};font-weight:700">${t.amount>0?'+':''}⭐${t.amount}</span></div>`).join('')||'<div style="color:var(--text2);font-size:13px">Tranzaksiya yo\'q</div>'}
     `;
   } catch(e) { document.getElementById('userModalContent').innerHTML = `<div style="color:var(--red)">${e.message}</div>`; }
 }
