@@ -562,6 +562,8 @@ async function doLogin() {
     loadDashboard();
   } catch(e) {
     document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginError').textContent = '❌ Xato: ' + e.message;
+    alert('Kirishda xatolik yuz berdi: ' + e.message);
   }
 }
 function doLogout() {
@@ -575,7 +577,7 @@ if (adminToken) {
   apiCall('POST', '/api/admin/verify', {}, adminToken).then(() => {
     document.getElementById('loginScreen').style.display = 'none';
     loadDashboard();
-  }).catch(() => {
+  }).catch((e) => {
     localStorage.removeItem('admin_token');
     adminToken = '';
   });
@@ -591,12 +593,17 @@ async function apiCall(method, path, body, token) {
     headers: { 'Content-Type': 'application/json', 'X-Admin-Token': tk },
   };
   if (body && method !== 'GET') opts.body = JSON.stringify(body);
-  const r = await fetch(API + path, opts);
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({ detail: 'Xato' }));
-    throw new Error(e.detail || 'Server xatosi');
+  try {
+    const r = await fetch(API + path, opts);
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({ detail: 'Tushunarsiz server xatosi' }));
+      throw new Error(e.detail || `Server status xatosi: ${r.status}`);
+    }
+    return await r.json();
+  } catch (err) {
+    console.error('API call failed:', err);
+    throw new Error(err.message || 'Tarmoq ulanish xatosi (CORS yoki Server ochiq emas)');
   }
-  return r.json();
 }
 
 // ─── PAGES ────────────────────────────────────────────────

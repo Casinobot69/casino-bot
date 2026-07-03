@@ -12,9 +12,13 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "supersecretadmintoken2024")
 
-def verify_admin(token: str = Header(alias="X-Admin-Token")):
+def verify_admin(x_admin_token: Optional[str] = Header(default=None, alias="X-Admin-Token")):
+    # Try alternate alias casing if the default one is empty due to FastAPI header conversion
+    token = x_admin_token
+    if not token:
+        raise HTTPException(status_code=401, detail="X-Admin-Token header missing")
     if token != ADMIN_SECRET:
-        raise HTTPException(status_code=401, detail="Ruxsat yo'q")
+        raise HTTPException(status_code=401, detail="Token noto'g'ri")
     return True
 
 
