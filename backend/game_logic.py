@@ -308,9 +308,18 @@ async def _spin_game(room_id: str, commission_rate: int = 5):
     room.status = "spinning"
     total_bank = room.get_total_bank()
 
-    # Weighted random winner
-    weights = [p["bet"] for p in room.players]
-    winner = random.choices(room.players, weights=weights, k=1)[0]
+    # Cryptographically secure roulette wheel selection (100% fair and unbiased)
+    import secrets
+    total_bank = sum(p["bet"] for p in room.players)
+    secure_rand = secrets.SystemRandom().uniform(0, total_bank)
+    
+    cumulative = 0
+    winner = room.players[0]
+    for p in room.players:
+        cumulative += p["bet"]
+        if secure_rand <= cumulative:
+            winner = p
+            break
 
     # Commission
     commission = int(total_bank * commission_rate / 100)
