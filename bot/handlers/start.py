@@ -47,6 +47,43 @@ async def cmd_start(message: Message):
         first_name=message.from_user.first_name or "",
         last_name=message.from_user.last_name or "",
     )
+    
+    status = user.get("approval_status", "pending")
+    
+    if status == "pending":
+        await message.answer(
+            "⏳ <b>Kirish so'rovingiz kutilmoqda</b>\n\n"
+            "Sizning o'yinga kirish so'rovingiz qabul qilindi. "
+            "Admin tasdiqlashi bilan sizga xabar yuboriladi. Iltimos, kuting.",
+            parse_mode="HTML"
+        )
+        
+        # Notify admins
+        try:
+            admin_ids = [int(x) for x in os.getenv("ADMIN_IDS", "6594366391").split(",")]
+            for admin_id in admin_ids:
+                if admin_id != message.from_user.id:
+                    await message.bot.send_message(
+                        admin_id,
+                        f"🔔 <b>Yangi kirish so'rovi!</b>\n\n"
+                        f"Ism: <b>{message.from_user.first_name}</b>\n"
+                        f"Username: @{message.from_user.username or 'yo’q'}\n"
+                        f"ID: <code>{message.from_user.id}</code>\n\n"
+                        f"Tasdiqlash/Rad etish uchun admin panelga kiring.",
+                        parse_mode="HTML"
+                    )
+        except Exception:
+            pass
+        return
+        
+    elif status == "rejected":
+        await message.answer(
+            "❌ <b>Kirish rad etildi</b>\n\n"
+            "Afsuski, sizning tizimga kirish so'rovingiz admin tomonidan rad etilgan.",
+            parse_mode="HTML"
+        )
+        return
+
     name = message.from_user.first_name or "O'yinchi"
     is_admin = bool(user.get("is_admin"))
 

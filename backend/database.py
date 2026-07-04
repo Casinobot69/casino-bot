@@ -164,6 +164,11 @@ async def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Schema migration to add approval_status column to users table
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN approval_status TEXT DEFAULT 'pending'")
+        except Exception:
+            pass
         defaults = [
             ("commission_rate", "5"),
             ("min_bet", "100"),
@@ -226,15 +231,27 @@ async def create_or_update_user(telegram_id: int, username: str = "", first_name
     async with aiosqlite.connect(DB_PATH) as db:
         existing = await _fetchone(db, "SELECT * FROM users WHERE telegram_id=?", (telegram_id,))
         welcome_bonus = int(await get_setting("welcome_bonus") or "0")
+        
+        admin_ids = [int(x) for x in os.getenv("ADMIN_IDS", "6594366391").split(",")]
+        is_admin = 1 if telegram_id in admin_ids else 0
+        approval_status = 'approved' if is_admin == 1 else 'pending'
+        
         if not existing:
             await db.execute(
-                "INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, balance) VALUES (?,?,?,?,?,?)",
-                (telegram_id, username, first_name, last_name, photo_url, welcome_bonus)
+                """INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, balance, is_admin, approval_status)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (telegram_id, username, first_name, last_name, photo_url, welcome_bonus, is_admin, approval_status)
             )
         else:
+            new_is_admin = existing.get("is_admin", 0)
+            new_approval_status = existing.get("approval_status", "pending")
+            if is_admin:
+                new_is_admin = 1
+                new_approval_status = "approved"
             await db.execute(
-                "UPDATE users SET username=?, first_name=?, last_name=?, photo_url=?, last_seen=CURRENT_TIMESTAMP WHERE telegram_id=?",
-                (username, first_name, last_name, photo_url, telegram_id)
+                """UPDATE users SET username=?, first_name=?, last_name=?, photo_url=?, is_admin=?, approval_status=?, last_seen=CURRENT_TIMESTAMP
+                   WHERE telegram_id=?""",
+                (username, first_name, last_name, photo_url, new_is_admin, new_approval_status, telegram_id)
             )
         await db.commit()
     return await get_user(telegram_id)

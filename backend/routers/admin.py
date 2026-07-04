@@ -282,6 +282,45 @@ async def admin_verify(token: str = Header(alias="X-Admin-Token")):
     return {"success": True, "message": "Token to'g'ri"}
 
 
+@router.post("/users/{telegram_id}/approve")
+async def approve_user(telegram_id: int, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET approval_status='approved' WHERE telegram_id=?", (telegram_id,))
+        await db.commit()
+    
+    try:
+        from bot.main import bot
+        await bot.send_message(
+            telegram_id,
+            "🎉 <b>Tabriklaymiz!</b>\n\nSizning o'yinga kirish so'rovingiz admin tomonidan tasdiqlandi. "
+            "Endi botdan va o'yin xonalaridan to'liq foydalanishingiz mumkin!",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    return {"success": True, "message": "Foydalanuvchi tasdiqlandi"}
+
+
+@router.post("/users/{telegram_id}/reject")
+async def reject_user(telegram_id: int, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET approval_status='rejected' WHERE telegram_id=?", (telegram_id,))
+        await db.commit()
+        
+    try:
+        from bot.main import bot
+        await bot.send_message(
+            telegram_id,
+            "❌ <b>Tizimga kirish so'rovi</b>\n\nAfsuski, sizning kirish so'rovingiz admin tomonidan rad etildi.",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+    return {"success": True, "message": "Foydalanuvchi rad etildi"}
+
+
 class PromoCreate(BaseModel):
     code: str
     reward: int

@@ -683,7 +683,37 @@ async function searchUsers() {
 }
 
 function userRowHtml(u) {
-  const status = u.is_banned ? '<span class="badge badge-red">BAN</span>' : u.is_admin ? '<span class="badge badge-gold">ADMIN</span>' : '<span class="badge badge-green">FAOL</span>';
+  let statusBadge = '';
+  const appStatus = u.approval_status || 'pending';
+  
+  if (appStatus === 'pending') {
+    statusBadge = '<span class="badge badge-purple">KUTILMOQDA</span>';
+  } else if (appStatus === 'rejected') {
+    statusBadge = '<span class="badge badge-red">RAD ETILGAN</span>';
+  } else {
+    statusBadge = u.is_banned ? '<span class="badge badge-red">BAN</span>' : u.is_admin ? '<span class="badge badge-gold">ADMIN</span>' : '<span class="badge badge-green">FAOL</span>';
+  }
+
+  let actionsHtml = `
+    <button class="btn btn-ghost btn-sm" onclick="openUserModal(${u.telegram_id})">👤</button>
+  `;
+  
+  if (appStatus === 'pending') {
+    actionsHtml += `
+      <button class="btn btn-success btn-sm" onclick="doApprove(${u.telegram_id})">✅ Tasdiqlash</button>
+      <button class="btn btn-danger btn-sm" onclick="doReject(${u.telegram_id})">❌ Rad etish</button>
+    `;
+  } else if (appStatus === 'rejected') {
+    actionsHtml += `
+      <button class="btn btn-success btn-sm" onclick="doApprove(${u.telegram_id})">✅ Tasdiqlash</button>
+    `;
+  } else {
+    actionsHtml += `
+      <button class="btn btn-danger btn-sm" onclick="${u.is_banned ? 'doUnban':'doBan'}(${u.telegram_id})">${u.is_banned ? 'Unban':'Ban'}</button>
+      <button class="btn btn-warning btn-sm" onclick="doReject(${u.telegram_id})">Rad etish</button>
+    `;
+  }
+
   return `
     <tr>
       <td><code>${u.telegram_id}</code></td>
@@ -691,12 +721,9 @@ function userRowHtml(u) {
       <td>${u.username ? '@'+u.username : '-'}</td>
       <td><span style="color:var(--gold);font-weight:800">⭐ ${u.balance.toLocaleString()}</span></td>
       <td>${u.total_wins} / ${u.total_games}</td>
-      <td>${status}</td>
+      <td>${statusBadge}</td>
       <td>
-        <div class="btn-group">
-          <button class="btn btn-ghost btn-sm" onclick="openUserModal(${u.telegram_id})">👤</button>
-          <button class="btn btn-danger btn-sm" onclick="${u.is_banned ? 'doUnban':'doBan'}(${u.telegram_id})">${u.is_banned ? 'Unban':'Ban'}</button>
-        </div>
+        <div class="btn-group">${actionsHtml}</div>
       </td>
     </tr>
   `;
@@ -953,8 +980,8 @@ async function openUserModal(tgId) {
         <div><label class="input-label">Username</label><div>@${u.username || '-'}</div></div>
         <div><label class="input-label">ID</label><div><code>${u.telegram_id}</code></div></div>
         <div><label class="input-label">Balans</label><div style="color:var(--gold);font-weight:800">⭐ ${u.balance.toLocaleString()}</div></div>
+        <div><label class="input-label">Kirish Statusi</label><div><b>${(u.approval_status || 'pending').toUpperCase()}</b></div></div>
         <div><label class="input-label">O'yinlar / G'alaba</label><div>${u.total_games} / ${u.total_wins}</div></div>
-        <div><label class="input-label">Jami stavka</label><div>⭐ ${u.total_wagered.toLocaleString()}</div></div>
       </div>
       <div class="section-title" style="margin-bottom:12px;">💸 Balansni o'zgartirish (ID: ${tgId})</div>
       <div style="display:flex;gap:10px;margin-bottom:20px;">
@@ -989,6 +1016,24 @@ async function doBan(tgId) {
 }
 async function doUnban(tgId) {
   try { await apiCall('POST', '/api/admin/unban', { telegram_id: tgId }); toast('✅ Foydalanuvchi blokdan chiqarildi', 'success'); refreshCurrent(); } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function doApprove(tgId) {
+  try {
+    await apiCall('POST', `/api/admin/users/${tgId}/approve`);
+    toast('✅ Foydalanuvchi tizimga tasdiqlandi!', 'success');
+    refreshCurrent();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function doReject(tgId) {
+  try {
+    const conf = confirm("Haqiqatan ham foydalanuvchining kirish so'rovini rad etmoqchisiz?");
+    if (!conf) return;
+    await apiCall('POST', `/api/admin/users/${tgId}/reject`);
+    toast('🚫 Kirish so\'rovi rad etildi!', 'warning');
+    refreshCurrent();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 // TOAST

@@ -38,6 +38,8 @@ async def get_profile(telegram_id: int):
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
     if user.get("is_banned"):
         raise HTTPException(status_code=403, detail="Bloklangan")
+    if user.get("approval_status") != "approved":
+        raise HTTPException(status_code=403, detail="Hisobingiz tasdiqlanmagan")
     txs = await get_transactions(telegram_id=telegram_id, limit=5)
     return {"user": user, "recent_transactions": txs}
 
@@ -47,6 +49,10 @@ async def get_balance(telegram_id: int):
     user = await get_user(telegram_id)
     if not user:
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    if user.get("is_banned"):
+        raise HTTPException(status_code=403, detail="Bloklangan")
+    if user.get("approval_status") != "approved":
+        raise HTTPException(status_code=403, detail="Hisobingiz tasdiqlanmagan")
     return {"balance": user["balance"]}
 
 
@@ -55,6 +61,10 @@ async def user_transactions(telegram_id: int, limit: int = 20):
     user = await get_user(telegram_id)
     if not user:
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    if user.get("is_banned"):
+        raise HTTPException(status_code=403, detail="Bloklangan")
+    if user.get("approval_status") != "approved":
+        raise HTTPException(status_code=403, detail="Hisobingiz tasdiqlanmagan")
     txs = await get_transactions(telegram_id=telegram_id, limit=limit)
     return {"transactions": txs}
 
@@ -73,6 +83,14 @@ class WithdrawRequest(BaseModel):
 @router.post("/promo/redeem")
 async def user_promo_redeem(body: PromoRedeemRequest):
     from backend.database import claim_promo
+    user = await get_user(body.telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    if user.get("is_banned"):
+        raise HTTPException(status_code=403, detail="Bloklangan")
+    if user.get("approval_status") != "approved":
+        raise HTTPException(status_code=403, detail="Hisobingiz tasdiqlanmagan")
+        
     success, msg = await claim_promo(body.telegram_id, body.code.upper().strip())
     if not success:
          raise HTTPException(status_code=400, detail=msg)
@@ -83,6 +101,14 @@ async def user_promo_redeem(body: PromoRedeemRequest):
 @router.post("/withdraw")
 async def user_withdraw_request(body: WithdrawRequest):
     from backend.database import create_withdrawal
+    user = await get_user(body.telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    if user.get("is_banned"):
+        raise HTTPException(status_code=403, detail="Bloklangan")
+    if user.get("approval_status") != "approved":
+        raise HTTPException(status_code=403, detail="Hisobingiz tasdiqlanmagan")
+        
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Miqdor noto'g'ri")
     success, msg = await create_withdrawal(body.telegram_id, body.amount, body.details)

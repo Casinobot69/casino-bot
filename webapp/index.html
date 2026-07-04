@@ -512,11 +512,35 @@ async function init() {
     state.balance = resp.user.balance;
     updateBalanceDisplay();
     
+    const status = resp.user.approval_status || 'pending';
+    if (status !== 'approved') {
+      showLockedScreen(status);
+      return;
+    }
+    
     // Connect to current room immediately as spectator
     await joinActiveRoomSpectator();
   } catch(e) {
     showToast('❌ Xato: ' + e.message);
   }
+}
+
+function showLockedScreen(status) {
+  const isPending = status === 'pending';
+  document.body.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:24px;text-align:center;background:#090a0f;font-family:'Outfit',sans-serif;">
+      <div style="font-size:64px;margin-bottom:20px;">${isPending ? '⏳' : '❌'}</div>
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:12px;color:#fff;">
+        ${isPending ? 'Hisobingiz tasdiqlanishi kutilmoqda' : 'Kirish so\'rovi rad etilgan'}
+      </h2>
+      <p style="font-size:14px;color:#9299a9;line-height:1.5;max-width:320px;margin-bottom:28px;">
+        ${isPending ? 'Sizning o\'yinga kirish so\'rovingiz qabul qilindi. Admin tasdiqlashi bilanoq o\'yin faollashadi.' : 'Afsuski, tizimga kirish so\'rovingiz admin tomonidan rad etilgan.'}
+      </p>
+      <button onclick="window.Telegram?.WebApp?.close()" style="padding:14px 28px;background:#181b26;border:1px solid #292d3e;border-radius:12px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;">
+        Yopish
+      </button>
+    </div>
+  `;
 }
 
 async function joinActiveRoomSpectator() {
