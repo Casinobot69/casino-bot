@@ -16,7 +16,7 @@ def get_main_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(
         text="🎮 O'ynash",
-        web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp/")
+        web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp/?v=12")
     )
     builder.button(
         text="💼 Balans",
@@ -153,7 +153,7 @@ async def cmd_play(message: Message):
     builder = InlineKeyboardBuilder()
     builder.button(
         text="🎮 O'yinga kirish",
-        web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp/")
+        web_app=WebAppInfo(url=f"{WEBAPP_URL}/webapp/?v=12")
     )
     await message.answer(
         "🎰 <b>PVP Wheel</b> — O'yinga tayyormisiz?\n\n"

@@ -119,6 +119,12 @@ async def get_room(room_id: str):
 
 @router.websocket("/ws/{room_id}")
 async def game_websocket(websocket: WebSocket, room_id: str, telegram_id: int = Query(...)):
+    user = await get_user(telegram_id)
+    if not user or user.get("approval_status") != "approved" or user.get("is_banned"):
+        await websocket.accept()
+        await websocket.close(code=4003, reason="Tasdiqlanmagan")
+        return
+        
     await manager.connect(websocket, room_id, telegram_id)
     try:
         room = active_rooms.get(room_id)
