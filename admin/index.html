@@ -338,6 +338,18 @@ tr:hover td{background:rgba(255,255,255,0.015)}
         </div>
       </div>
     </div>
+    
+    <!-- QUICK ACTIONS CONTROL PANEL (5 useful features) -->
+    <div class="section" style="margin-top:24px;">
+      <div class="section-header"><div class="section-title">⚡ Tizim Tezkor Boshqaruvi (5 ta Funksiya)</div></div>
+      <div class="section-body" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;padding:16px;">
+        <button class="btn btn-primary" onclick="forceBotBetAction()" style="background:#5865f2;color:#fff;border:none;padding:14px;border-radius:10px;cursor:pointer;font-weight:700;">🤖 1. Botni Stavka Tikishga Majburlash</button>
+        <button class="btn btn-warning" onclick="toggleMaintenanceAction()" style="background:#ffa500;color:#000;border:none;padding:14px;border-radius:10px;cursor:pointer;font-weight:700;">🚧 2. Texnik Ishni Yoqish/O'chirish</button>
+        <button class="btn btn-success" onclick="downloadBackupAction()" style="background:#2ed573;color:#fff;border:none;padding:14px;border-radius:10px;cursor:pointer;font-weight:700;">💾 3. Baza Rezerv Nusxasini Yuklash</button>
+        <button class="btn btn-danger" onclick="resetGamesAction()" style="background:#ff4757;color:#fff;border:none;padding:14px;border-radius:10px;cursor:pointer;font-weight:700;">🗑️ 4. O'yinlar Tarixini Tozalash</button>
+        <button class="btn btn-secondary" onclick="clearLogsAction()" style="background:#747d8c;color:#fff;border:none;padding:14px;border-radius:10px;cursor:pointer;font-weight:700;">📜 5. Audit Loglarni Tozalash</button>
+      </div>
+    </div>
   </div>
 
   <!-- USERS PAGE -->
@@ -433,7 +445,10 @@ tr:hover td{background:rgba(255,255,255,0.015)}
   <!-- AUDIT LOGS PAGE -->
   <div class="page" id="page-audit">
     <div class="section">
-      <div class="section-header"><div class="section-title">📜 Tizim Audit Loglari (Admin Amallari)</div></div>
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+        <div class="section-title">📜 Tizim Audit Loglari (Admin Amallari)</div>
+        <button class="btn btn-danger btn-sm" onclick="clearLogsAction()">🗑️ Loglarni tozalash</button>
+      </div>
       <div id="auditLogList"></div>
     </div>
   </div>
@@ -836,11 +851,52 @@ async function loadAuditLogs() {
   try {
     const data = await apiCall('GET', '/api/admin/audit?limit=100');
     div.innerHTML = data.logs.map(l => `
-      <div class="log-item">
-        <div><b>${l.action}</b> - <span style="color:var(--text2);">${escHtml(l.details)}</span></div>
-        <div class="log-time">${l.created_at.slice(0, 19)}</div>
+      <div class="log-item" style="padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+        <div><b>${l.action.toUpperCase()}</b> - <span style="color:var(--text2);">${escHtml(l.details)}</span></div>
+        <div class="log-time" style="color:var(--text2); font-size:12px;">${l.created_at}</div>
       </div>
     `).join('') || '<div class="empty-state">Audit loglari bo\'sh</div>';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function forceBotBetAction() {
+  try {
+    await apiCall('POST', '/api/admin/system/force-bot-bet');
+    toast('🤖 Bot stavkasi muvaffaqiyatli kiritildi!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function toggleMaintenanceAction() {
+  try {
+    const settings = await apiCall('GET', '/api/admin/settings');
+    const current = settings.maintenance_mode || '0';
+    const next = current === '1' ? '0' : '1';
+    await apiCall('POST', '/api/admin/settings', { key: 'maintenance_mode', value: next });
+    toast(`🚧 Texnik ishlar rejimi ${next === '1' ? 'yoqildi (sayt yopiq)':'o\'chirildi (sayt ochiq)'}!`, 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function downloadBackupAction() {
+  window.open(`${API}/api/admin/system/db-backup?token=${encodeURIComponent(adminToken)}`, '_blank');
+}
+
+async function resetGamesAction() {
+  try {
+    const conf = confirm("Haqiqatan ham barcha o'yinlar tarixi va statistikalarini butunlay o'chirib tashlamoqchisiz?");
+    if (!conf) return;
+    await apiCall('POST', '/api/admin/system/reset-games');
+    toast('🗑️ O\'yinlar tarixi tozalandi!', 'success');
+    loadDashboard();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function clearLogsAction() {
+  try {
+    const conf = confirm("Haqiqatan ham barcha audit loglarini o'chirmoqchisiz?");
+    if (!conf) return;
+    await apiCall('DELETE', '/api/admin/logs/clear');
+    toast('🗑️ Audit loglari tozalandi!', 'success');
+    loadAuditLogs();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -873,22 +929,24 @@ async function loadSettings() {
   try {
     const data = await apiCall('GET', '/api/admin/settings');
     const configs = [
-      { key: 'commission_rate', label: 'Tizim komissiyasi (%)', desc: 'Har bir tugallangan o\'yin bankidan olinadigan ulush', type: 'text' },
-      { key: 'min_bet', label: 'Minimal stavka (Stars)', desc: 'O\'yinchilar uchun eng kam stavka miqdori', type: 'text' },
-      { key: 'max_bet', label: 'Maksimal stavka (Stars)', desc: 'O\'yinchilar uchun eng ko\'p jami stavka miqdori', type: 'text' },
-      { key: 'game_timer', label: 'O\'yin taymeri (soniya)', desc: 'Taymer boshlangandan to spin bo\'lgunicha vaqt', type: 'text' },
-      { key: 'max_players', label: 'Maksimal o\'yinchilar soni', desc: 'Bir o\'yin xonasidagi maksimal ishtirokchilar', type: 'text' },
-      { key: 'welcome_bonus', label: 'Yangi a\'zolar bonusi', desc: 'Botga birinchi marta kirganda beriladigan Stars miqdori', type: 'text' },
-      { key: 'referral_commission', label: 'Referral komissiya foizi (%)', desc: 'Referral taklif qilgan a\'zo yutganida beriladigan foiz', type: 'text' },
+      { key: 'commission_rate', label: 'Tizim komissiyasi (%)', desc: 'Har bir o\'yindan olinadigan komissiya', type: 'text' },
+      { key: 'min_bet', label: 'Minimal stavka (Stars)', desc: 'O\'yinchilar uchun eng kam stavka', type: 'text' },
+      { key: 'max_bet', label: 'Maksimal stavka (Stars)', desc: 'O\'yinchilar uchun eng ko\'p jami stavka', type: 'text' },
+      { key: 'game_timer', label: 'O\'yin taymeri (soniya)', desc: 'Taymer boshlangandan to aylanishgacha vaqt', type: 'text' },
+      { key: 'max_players', label: 'Maksimal o\'yinchilar soni', desc: 'Bir xonadagi maksimal ishtirokchilar', type: 'text' },
+      { key: 'welcome_bonus', label: 'Yangi a\'zolar bonusi', desc: 'Botga birinchi marta kirganda beriladigan Stars', type: 'text' },
+      { key: 'referral_commission', label: 'Referral komissiya foizi (%)', desc: 'Taklif qilganga beriladigan ulush', type: 'text' },
       { 
         key: 'active_theme', 
         label: '🎨 WebApp Faol Dizayni (Theme)', 
-        desc: 'WebApp ko\'rinishini o\'zgartirish', 
+        desc: 'WebApp ko\'rinishini almashtirish', 
         type: 'select',
         options: [
-          { value: 'classic', label: '🔵 Classic Neon Blue (Standart)' },
-          { value: 'luxury', label: '👑 Luxury Gold (Oltin & Qora)' },
-          { value: 'cyberpunk', label: '🔴 Cyberpunk Neon Pink (Neon Qizil)' }
+          { value: 'classic', label: '🔵 Classic Neon Blue' },
+          { value: 'luxury', label: '👑 Luxury Gold' },
+          { value: 'cyberpunk', label: '🔴 Cyberpunk Neon Pink' },
+          { value: 'emerald', label: '🟢 Emerald Forest (Zümrad Yashil)' },
+          { value: 'sunset', label: '🌅 Retro Sunset (Olovrang-Binafsha)' }
         ]
       },
       { 
@@ -904,7 +962,7 @@ async function loadSettings() {
       { 
         key: 'sound_enabled', 
         label: '🔊 Standart Ovozlar', 
-        desc: 'Baraban chertish ovozlari yoqilgan yoki o\'chirilganligi', 
+        desc: 'Baraban chertish ovozlari yoqilganligi', 
         type: 'select',
         options: [
           { value: '1', label: '✅ Yoqilgan' },
@@ -914,13 +972,51 @@ async function loadSettings() {
       { 
         key: 'auto_bot_inject', 
         label: '🤖 Avtomatik Bot Injector', 
-        desc: 'O\'yin xonasi 30 soniya davomida bo\'sh tursa, tizim o\'zi botlarni qo\'shib yuborishi', 
+        desc: 'Bo\'sh xonalarga bot qo\'shish', 
         type: 'select',
         options: [
           { value: '1', label: '✅ Yoqilgan' },
           { value: '0', label: '❌ O\'chirilgan' }
         ]
       },
+      { key: 'fake_bot_min_bet', label: '🤖 Bot Minimal Stavkasi (Stars)', desc: 'Botlar uchun eng kam stavka miqdori', type: 'text' },
+      { key: 'fake_bot_max_bet', label: '🤖 Bot Maksimal Stavkasi (Stars)', desc: 'Botlar uchun eng ko\'p stavka miqdori', type: 'text' },
+      { key: 'fake_bot_inject_delay', label: '🤖 Bot Injector Kechikishi (soniya)', desc: 'Botlarni necha soniyada xonaga qo\'shish', type: 'text' },
+      {
+        key: 'fake_bot_avatar_toggle',
+        label: '🤖 Bot Avatarlari',
+        desc: 'Botlar uchun avtomatik rasm ko\'rsatish',
+        type: 'select',
+        options: [
+          { value: '1', label: '✅ Avtomatik rasm' },
+          { value: '0', label: '❌ Bo\'sh rasm' }
+        ]
+      },
+      {
+        key: 'fake_bot_name_style',
+        label: '🤖 Bot Ismlari Tili',
+        desc: 'Botlar uchun qaysi tildagi ismlardan foydalanish',
+        type: 'select',
+        options: [
+          { value: 'uzb', label: '🇺🇿 O\'zbekcha ismlar' },
+          { value: 'eng', label: '🇺🇸 Inglizcha ismlar' },
+          { value: 'ru', label: '🇷🇺 Ruscha ismlar' }
+        ]
+      },
+      { key: 'real_withdraw_min_limit', label: '💸 Minimal Chiqarish Limit (Stars)', desc: 'Foydalanuvchi eng kamida qancha Stars chiqarishi mumkin', type: 'text' },
+      {
+        key: 'real_withdraw_auto_approve',
+        label: '💸 Chiqarishni Avtomat Tasdiqlash',
+        desc: 'Chiqarish so\'rovlarini avtomatik tasdiqlash rejimini boshqarish',
+        type: 'select',
+        options: [
+          { value: '1', label: '✅ Yoqilgan (Avtomatik)' },
+          { value: '0', label: '❌ O\'chirilgan (Qo\'lda tekshiruv)' }
+        ]
+      },
+      { key: 'real_max_active_rooms', label: '🏢 Maksimal Aktiv Xonalar', desc: 'Bir vaqtning o\'zida ochilishi mumkin bo\'lgan xonalar soni', type: 'text' },
+      { key: 'real_chat_message_limit', label: '💬 Chat Log Chegarasi', desc: 'Chat oynasida ko\'rsatiladigan xabarlar soni', type: 'text' },
+      { key: 'real_sound_volume', label: '🔊 Default Tizim Ovoz Balandligi (%)', desc: 'Barcha uchun dastlabki tovush balandligi (10 - 100)', type: 'text' },
       { 
         key: 'maintenance_mode', 
         label: '🚧 Texnik ishlar (Maintenance Mode)', 
@@ -954,7 +1050,12 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
-  const keys = ['commission_rate', 'min_bet', 'max_bet', 'game_timer', 'max_players', 'welcome_bonus', 'referral_commission', 'active_theme', 'chat_enabled', 'sound_enabled', 'auto_bot_inject', 'maintenance_mode'];
+  const keys = [
+    'commission_rate', 'min_bet', 'max_bet', 'game_timer', 'max_players', 'welcome_bonus', 'referral_commission',
+    'active_theme', 'chat_enabled', 'sound_enabled', 'auto_bot_inject', 'maintenance_mode',
+    'fake_bot_min_bet', 'fake_bot_max_bet', 'fake_bot_inject_delay', 'fake_bot_avatar_toggle', 'fake_bot_name_style',
+    'real_withdraw_min_limit', 'real_withdraw_auto_approve', 'real_max_active_rooms', 'real_chat_message_limit', 'real_sound_volume'
+  ];
   let saved = 0;
   for (const k of keys) {
     const val = document.getElementById('config_' + k).value.trim();

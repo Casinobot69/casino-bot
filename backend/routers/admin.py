@@ -465,3 +465,61 @@ async def admin_inject_fake(body: FakePlayerRequest, token: str = Header(alias="
     })
     
     return {"success": True, "message": "Fake o'yinchi qo'shildi"}
+
+
+@router.get("/logs")
+async def get_audit_logs(token: str = Header(alias="X-Admin-Token"), limit: int = Query(100)):
+    verify_admin(token)
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?", (limit,)) as c:
+            rows = await c.fetchall()
+            return {"logs": [dict(r) for r in rows]}
+
+
+@router.delete("/logs/clear")
+async def clear_audit_logs(token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM audit_logs")
+        await db.execute("INSERT INTO audit_logs (action, details) VALUES ('logs_clear', 'Audit loglar tozalandi')")
+        await db.commit()
+    return {"success": True}
+
+
+@router.post("/system/reset-games")
+async def reset_games(token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM games")
+        await db.execute("DELETE FROM game_players")
+        await db.execute("INSERT INTO audit_logs (action, details) VALUES ('reset_games', 'Barcha o\'yinlar tarixi tozalandi')")
+        await db.commit()
+    return {"success": True}
+
+
+@router.post("/system/force-bot-bet")
+async def force_bot_bet(token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.game_logic import active_rooms, inject_fake_player_silently, create_game_room
+    room_id = None
+    for rid, r in active_rooms.items():
+        if r.status in ("waiting", "betting"):
+            room_id = rid
+            break
+    if not room_id:
+        room = await create_game_room(0)
+        room_id = room.room_id
+    
+    await inject_fake_player_silently(room_id)
+    return {"success": True, "message": "Bot stavkasi majburan kiritildi"}
+
+
+from fastapi.responses import FileResponse
+@router.get("/system/db-backup")
+async def db_backup(token: str = Query(...)):
+    if token != ADMIN_SECRET:
+         raise HTTPException(status_code=401, detail="Token noto'g'ri")
+    if not os.path.exists(DB_PATH):
+         raise HTTPException(status_code=404, detail="Baza topilmadi")
+    return FileResponse(DB_PATH, filename="casino_backup.db")

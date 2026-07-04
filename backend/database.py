@@ -184,6 +184,16 @@ async def init_db():
             ("sound_enabled", "1"),
             ("referral_commission", "5"),
             ("auto_bot_inject", "0"),
+            ("fake_bot_min_bet", "100"),
+            ("fake_bot_max_bet", "1000"),
+            ("fake_bot_inject_delay", "15"),
+            ("fake_bot_avatar_toggle", "1"),
+            ("fake_bot_name_style", "uzb"),
+            ("real_withdraw_auto_approve", "0"),
+            ("real_withdraw_min_limit", "500"),
+            ("real_max_active_rooms", "3"),
+            ("real_chat_message_limit", "50"),
+            ("real_sound_volume", "80"),
         ]
         for key, value in defaults:
             await db.execute(

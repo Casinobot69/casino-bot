@@ -124,19 +124,20 @@ async def create_game_room(telegram_id: int, commission_rate: int = 5, timer: in
 
 
 async def bot_injection_loop(room_id: str):
-    await asyncio.sleep(15)
+    settings = await _get_settings()
+    delay = int(settings.get("fake_bot_inject_delay", 15))
+    await asyncio.sleep(delay)
     room = active_rooms.get(room_id)
     if not room or room.status not in ("waiting", "betting"):
         return
         
-    settings = await _get_settings()
     if settings.get("auto_bot_inject") != "1":
         return
         
     if len(room.players) == 0:
         await inject_fake_player_silently(room_id)
         
-    await asyncio.sleep(15)
+    await asyncio.sleep(delay)
     room = active_rooms.get(room_id)
     if not room or room.status not in ("waiting", "betting"):
         return
@@ -151,8 +152,20 @@ async def inject_fake_player_silently(room_id: str):
         return
     import random
     fake_tg_id = random.randint(1000000, 9999999)
-    bot_names = ["Ali", "Vali", "Sardor", "Jasur", "Madina", "Shaxlo", "Murod", "Bekzod", "Kamola", "Diyor"]
+    
+    settings = await _get_settings()
+    name_style = settings.get("fake_bot_name_style", "uzb")
+    
+    if name_style == "eng":
+        bot_names = ["Alex", "John", "David", "Jessica", "Emily", "Michael", "Sarah", "Daniel", "Emma", "James"]
+    elif name_style == "ru":
+        bot_names = ["Ivan", "Dmitry", "Sergey", "Elena", "Olga", "Alexey", "Anna", "Maria", "Maxim", "Pavel"]
+    else:
+        bot_names = ["Ali", "Vali", "Sardor", "Jasur", "Madina", "Shaxlo", "Murod", "Bekzod", "Kamola", "Diyor"]
+        
     bot_name = random.choice(bot_names)
+    avatar_toggle = settings.get("fake_bot_avatar_toggle", "1")
+    photo_url = f"https://api.dicebear.com/7.x/bottts/svg?seed={bot_name}{fake_tg_id}" if avatar_toggle == "1" else ""
     
     fake_user = {
         "id": fake_tg_id,
@@ -160,7 +173,7 @@ async def inject_fake_player_silently(room_id: str):
         "username": f"{bot_name.lower()}_{random.randint(10, 99)}",
         "first_name": bot_name,
         "last_name": "",
-        "photo_url": ""
+        "photo_url": photo_url
     }
     
     async with aiosqlite.connect(DB_PATH) as db:
@@ -174,10 +187,9 @@ async def inject_fake_player_silently(room_id: str):
             if row:
                 fake_user["id"] = row[0]
                 
-    settings = await _get_settings()
-    min_bet = int(settings.get("min_bet", 100))
-    max_bet = int(settings.get("max_bet", 2500))
-    bet_amount = random.randint(min_bet, min(max_bet, min_bet * 3))
+    bot_min = int(settings.get("fake_bot_min_bet", 100))
+    bot_max = int(settings.get("fake_bot_max_bet", 1000))
+    bet_amount = random.randint(bot_min, max(bot_min, bot_max))
     
     success, msg = await join_game_room(room_id, fake_user, bet_amount)
     if success:
