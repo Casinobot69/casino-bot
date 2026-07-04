@@ -453,8 +453,8 @@ async def _spin_game(room_id: str, commission_rate: int = 5):
     except Exception:
         pass
 
-    # Cleanup after 30s
-    await asyncio.sleep(30)
+    # Cleanup after 12s (fast room recycling)
+    await asyncio.sleep(12)
     active_rooms.pop(room_id, None)
 
 

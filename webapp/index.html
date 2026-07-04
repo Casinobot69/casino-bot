@@ -856,7 +856,7 @@ function handleGameOver(msg) {
     launchConfetti();
   }, 500);
 
-  // Reset room after a delay
+  // Reset room and spectate the next active game room faster (after 5 seconds)
   setTimeout(() => {
     state.players = [];
     state.roomId = null;
@@ -864,16 +864,26 @@ function handleGameOver(msg) {
     state.gameStatus = 'waiting';
     state.totalBank = 0;
     state.wheelRotation = 0;
+    
+    if (state.ws) {
+      state.ws.close();
+      state.ws = null;
+    }
+    
     drawWheel();
     updatePlayersList();
     updateBankDisplay();
+    
     document.getElementById('playBtn').disabled = false;
     document.getElementById('playBtn').textContent = '🎮 Stavka qo\'yish';
     document.getElementById('playBtn').style.background = 'linear-gradient(135deg, var(--accent), var(--accent2))';
     document.getElementById('playBtn').style.color = '#fff';
     updateStatusBar('connected', '👥 Yangi o\'yin kutilmoqda...');
     closeWinner();
-  }, 8000);
+    
+    // Instantly join the new game room as spectator
+    joinActiveRoomSpectator();
+  }, 5000);
 }
 
 // PLACE BET
