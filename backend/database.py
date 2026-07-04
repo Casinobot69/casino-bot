@@ -126,6 +126,44 @@ async def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS withdrawals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                telegram_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                status TEXT DEFAULT 'pending',
+                details TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                processed_at TEXT DEFAULT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE NOT NULL,
+                reward INTEGER NOT NULL,
+                max_uses INTEGER DEFAULT 1,
+                uses INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_promos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                promo_id INTEGER NOT NULL,
+                used_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action TEXT NOT NULL,
+                details TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         defaults = [
             ("commission_rate", "5"),
             ("min_bet", "100"),
@@ -256,3 +294,123 @@ async def get_transactions(telegram_id: int = None, limit: int = 20) -> list:
 async def get_game_history(limit: int = 20) -> list:
     async with aiosqlite.connect(DB_PATH) as db:
         return await _fetchall(db, "SELECT * FROM games WHERE status='finished' ORDER BY finished_at DESC LIMIT ?", (limit,))
+
+
+async def add_audit_log(action: str, details: str = ""):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("INSERT INTO audit_logs (action, details) VALUES (?, ?)", (action, details))
+        await db.commit()
+
+
+async def get_audit_logs(limit: int = 50) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        return await _fetchall(db, "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?", (limit,))
+
+
+async def create_promo(code: str, reward: int, max_uses: int = 1) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("INSERT INTO promo_codes (code, reward, max_uses) VALUES (?, ?, ?)", (code, reward, max_uses))
+            await db.commit()
+            return True
+        except Exception:
+            return False
+
+
+async def get_promos() -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        return await _fetchall(db, "SELECT * FROM promo_codes ORDER BY created_at DESC")
+
+
+async def delete_promo(promo_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM promo_codes WHERE id=?", (promo_id,))
+        await db.commit()
+
+
+async def claim_promo(telegram_id: int, code: str) -> tuple[bool, str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        user = await _fetchone(db, "SELECT * FROM users WHERE telegram_id=?", (telegram_id,))
+        if not user:
+            return False, "Foydalanuvchi topilmadi"
+        
+        promo = await _fetchone(db, "SELECT * FROM promo_codes WHERE code=?", (code,))
+        if not promo:
+            return False, "Promo-kod topilmadi"
+        
+        if promo["uses"] >= promo["max_uses"]:
+            return False, "Promo-koddan foydalanish soni tugagan"
+            
+        already_used = await _fetchone(db, "SELECT * FROM user_promos WHERE user_id=? AND promo_id=?", (user["id"], promo["id"]))
+        if already_used:
+            return False, "Siz ushbu promo-koddan allaqachon foydalangansiz"
+            
+        await db.execute("UPDATE users SET balance=balance+? WHERE id=?", (promo["reward"], user["id"]))
+        await db.execute("INSERT INTO user_promos (user_id, promo_id) VALUES (?, ?)", (user["id"], promo["id"]))
+        await db.execute("UPDATE promo_codes SET uses=uses+1 WHERE id=?", (promo["id"],))
+        await db.execute(
+            """INSERT INTO transactions (user_id, telegram_id, type, amount, description, balance_before, balance_after)
+               VALUES (?, ?, 'promo_redeem', ?, ?, ?, ?)""",
+            (user["id"], telegram_id, promo["reward"], f"Promo-kod: {code}", user["balance"], user["balance"] + promo["reward"])
+        )
+        await db.commit()
+        return True, f"Tabriklaymiz! Hisobingizga ⭐ {promo['reward']} Stars qo'shildi."
+
+
+async def create_withdrawal(telegram_id: int, amount: int, details: str = "") -> tuple[bool, str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        user = await _fetchone(db, "SELECT * FROM users WHERE telegram_id=?", (telegram_id,))
+        if not user:
+            return False, "Foydalanuvchi topilmadi"
+        if user["balance"] < amount:
+            return False, "Balansingiz yetarli emas"
+            
+        await db.execute("UPDATE users SET balance=balance-? WHERE id=?", (amount, user["id"]))
+        await db.execute(
+            "INSERT INTO withdrawals (user_id, telegram_id, amount, status, details) VALUES (?, ?, ?, 'pending', ?)",
+            (user["id"], telegram_id, amount, details)
+        )
+        await db.execute(
+            """INSERT INTO transactions (user_id, telegram_id, type, amount, description, balance_before, balance_after)
+               VALUES (?, ?, 'withdrawal_pending', ?, ?, ?, ?)""",
+            (user["id"], telegram_id, -amount, f"Chiqazish so'rovi: {details}", user["balance"], user["balance"] - amount)
+        )
+        await db.commit()
+        return True, "Chiqazish so'rovi qabul qilindi. Admin tasdiqlashini kuting."
+
+
+async def get_withdrawals(status: str = None) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        if status:
+            return await _fetchall(db, "SELECT * FROM withdrawals WHERE status=? ORDER BY created_at DESC", (status,))
+        return await _fetchall(db, "SELECT * FROM withdrawals ORDER BY created_at DESC")
+
+
+async def process_withdrawal(withdrawal_id: int, action: str) -> tuple[bool, str]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        w = await _fetchone(db, "SELECT * FROM withdrawals WHERE id=?", (withdrawal_id,))
+        if not w:
+            return False, "So'rov topilmadi"
+        if w["status"] != "pending":
+            return False, "Ushbu so'rov allaqachon bajarilgan"
+            
+        if action == "approve":
+            await db.execute("UPDATE withdrawals SET status='approved', processed_at=CURRENT_TIMESTAMP WHERE id=?", (withdrawal_id,))
+            await db.execute(
+                "UPDATE transactions SET type='withdrawal_approved' WHERE telegram_id=? AND amount=? AND type='withdrawal_pending'",
+                (w["telegram_id"], -w["amount"])
+            )
+            await db.commit()
+            return True, "Tasdiqlandi!"
+        else:
+            await db.execute("UPDATE users SET balance=balance+? WHERE telegram_id=?", (w["amount"], w["telegram_id"]))
+            await db.execute("UPDATE withdrawals SET status='rejected', processed_at=CURRENT_TIMESTAMP WHERE id=?", (withdrawal_id,))
+            
+            user = await _fetchone(db, "SELECT id, balance FROM users WHERE telegram_id=?", (w["telegram_id"],))
+            await db.execute(
+                """INSERT INTO transactions (user_id, telegram_id, type, amount, description, balance_before, balance_after)
+                   VALUES (?, ?, 'withdrawal_refund', ?, ?, ?, ?)""",
+                (user["id"], w["telegram_id"], w["amount"], f"Chiqazish rad etildi (qaytarildi)", user["balance"] - w["amount"], user["balance"])
+            )
+            await db.commit()
+            return True, "Rad etildi (Mablag' qaytarildi)"

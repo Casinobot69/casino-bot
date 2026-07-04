@@ -280,3 +280,149 @@ async def admin_delete_user(telegram_id: int, token: str = Header(alias="X-Admin
 async def admin_verify(token: str = Header(alias="X-Admin-Token")):
     verify_admin(token)
     return {"success": True, "message": "Token to'g'ri"}
+
+
+class PromoCreate(BaseModel):
+    code: str
+    reward: int
+    max_uses: int = 1
+
+
+class FakePlayerRequest(BaseModel):
+    room_id: str
+    username: str = ""
+    first_name: str = ""
+    bet: int = 100
+
+
+@router.get("/promos")
+async def admin_get_promos(token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.database import get_promos
+    return {"promos": await get_promos()}
+
+
+@router.post("/promos")
+async def admin_create_promo(body: PromoCreate, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.database import create_promo
+    success = await create_promo(body.code.upper().strip(), body.reward, body.max_uses)
+    if not success:
+        raise HTTPException(status_code=400, detail="Promo-kod yaratib bo'lmadi (ehtimol allaqachon mavjud)")
+    return {"success": True}
+
+
+@router.delete("/promos/{promo_id}")
+async def admin_delete_promo(promo_id: int, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.database import delete_promo
+    await delete_promo(promo_id)
+    return {"success": True}
+
+
+@router.get("/withdrawals")
+async def admin_get_withdrawals(token: str = Header(alias="X-Admin-Token"), status: Optional[str] = None):
+    verify_admin(token)
+    from backend.database import get_withdrawals
+    return {"withdrawals": await get_withdrawals(status)}
+
+
+@router.post("/withdrawals/{withdrawal_id}/{action}")
+async def admin_process_withdrawal(withdrawal_id: int, action: str, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    if action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="Noto'g'ri amal")
+    from backend.database import process_withdrawal
+    success, msg = await process_withdrawal(withdrawal_id, action)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg}
+
+
+@router.get("/audit")
+async def admin_get_audit(token: str = Header(alias="X-Admin-Token"), limit: int = 100):
+    verify_admin(token)
+    from backend.database import get_audit_logs
+    return {"logs": await get_audit_logs(limit)}
+
+
+@router.get("/rooms")
+async def admin_get_rooms(token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.game_logic import active_rooms
+    rooms = []
+    for r_id, room in active_rooms.items():
+        rooms.append({
+            "room_id": room.room_id,
+            "status": room.status,
+            "total_bank": room.get_total_bank(),
+            "time_left": room.time_left,
+            "players_count": len(room.players),
+            "players": room.players
+        })
+    return {"rooms": rooms}
+
+
+@router.post("/rooms/{room_id}/spin")
+async def admin_force_spin(room_id: str, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.game_logic import active_rooms, _spin_game
+    from backend.database import get_setting
+    room = active_rooms.get(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Xona topilmadi")
+    if room.status not in ("waiting", "betting"):
+        raise HTTPException(status_code=400, detail="Xonani aylantirib bo'lmaydi (ehtimol aylanmoqda)")
+    if len(room.players) < 2:
+        raise HTTPException(status_code=400, detail="Kamida 2 ta o'yinchi bo'lishi kerak")
+    
+    import asyncio
+    asyncio.create_task(_spin_game(room_id, int(await get_setting("commission_rate") or 5)))
+    return {"success": True, "message": "O'yin aylantirildi"}
+
+
+@router.post("/fake-player")
+async def admin_inject_fake(body: FakePlayerRequest, token: str = Header(alias="X-Admin-Token")):
+    verify_admin(token)
+    from backend.game_logic import active_rooms, join_game_room
+    import random
+    room = active_rooms.get(body.room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Xona topilmadi")
+    
+    fake_tg_id = random.randint(1000000, 9999999)
+    fake_user = {
+        "id": fake_tg_id,
+        "telegram_id": fake_tg_id,
+        "username": body.username or f"player_{random.randint(100, 999)}",
+        "first_name": body.first_name or f"Bot_{random.randint(1, 50)}",
+        "last_name": "",
+        "photo_url": ""
+    }
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO users (telegram_id, username, first_name, last_name, balance) VALUES (?,?,?,?,?)",
+            (fake_tg_id, fake_user["username"], fake_user["first_name"], "", 10000)
+        )
+        await db.commit()
+        async with db.execute("SELECT id FROM users WHERE telegram_id=?", (fake_tg_id,)) as c:
+            row = await c.fetchone()
+            if row:
+                fake_user["id"] = row[0]
+                
+    success, msg = await join_game_room(body.room_id, fake_user, body.bet)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    
+    from backend.game_logic import manager
+    await manager.broadcast(body.room_id, {
+        "action": "player_joined",
+        "players": room.players,
+        "total_bank": room.get_total_bank(),
+        "status": room.status,
+        "time_left": room.time_left,
+        "room_id": room.room_id
+    })
+    
+    return {"success": True, "message": "Fake o'yinchi qo'shildi"}

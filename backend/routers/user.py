@@ -57,3 +57,36 @@ async def user_transactions(telegram_id: int, limit: int = 20):
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
     txs = await get_transactions(telegram_id=telegram_id, limit=limit)
     return {"transactions": txs}
+
+
+class PromoRedeemRequest(BaseModel):
+    telegram_id: int
+    code: str
+
+
+class WithdrawRequest(BaseModel):
+    telegram_id: int
+    amount: int
+    details: str = ""
+
+
+@router.post("/promo/redeem")
+async def user_promo_redeem(body: PromoRedeemRequest):
+    from backend.database import claim_promo
+    success, msg = await claim_promo(body.telegram_id, body.code.upper().strip())
+    if not success:
+         raise HTTPException(status_code=400, detail=msg)
+    user = await get_user(body.telegram_id)
+    return {"success": True, "message": msg, "balance": user["balance"]}
+
+
+@router.post("/withdraw")
+async def user_withdraw_request(body: WithdrawRequest):
+    from backend.database import create_withdrawal
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Miqdor noto'g'ri")
+    success, msg = await create_withdrawal(body.telegram_id, body.amount, body.details)
+    if not success:
+         raise HTTPException(status_code=400, detail=msg)
+    user = await get_user(body.telegram_id)
+    return {"success": True, "message": msg, "balance": user["balance"]}

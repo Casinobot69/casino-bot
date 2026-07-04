@@ -123,7 +123,7 @@ async def cmd_play(message: Message):
         "• Real odamlar bilan o'ynang\n"
         "• Stavkangizga qarab g'alaba ehtimoli\n"
         "• G'olib hammasini oladi!\n"
-        "• NFT sovg'alar uchun katta stavka qo'ying! 🎁",
+        "• Do'stlaringizni taklif qiling va birga o'ynang! 👥",
         parse_mode="HTML",
         reply_markup=builder.as_markup()
     )
@@ -195,10 +195,48 @@ async def cmd_help(message: Message):
         "👤 <b>/profile</b> — Profil\n"
         "🎰 <b>/play</b> — O'ynash\n"
         "📊 <b>/history</b> — Tranzaksiya tarixi\n"
-        "⭐ <b>/deposit</b> — Balans to'ldirish\n\n"
+        "⭐ <b>/deposit</b> — Balans to'ldirish\n"
+        "💸 <b>/withdraw [miqdor] [karta]</b> — Chiqazish so'rovi\n"
+        "🎫 <b>/promo [kod]</b> — Promo-kod faollashtirish\n\n"
         "❓ Muammo bo'lsa adminlarga murojaat qiling.",
         parse_mode="HTML"
     )
+
+@router.message(Command("promo"))
+async def cmd_promo(message: Message):
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("⚠️ Format: <code>/promo KOD</code>\nMasalan: <code>/promo FREE50</code>")
+        return
+    code = args[1].upper().strip()
+    from backend.database import claim_promo
+    success, msg = await claim_promo(message.from_user.id, code)
+    if success:
+        await message.answer(f"✅ {msg}")
+    else:
+        await message.answer(f"❌ {msg}")
+
+@router.message(Command("withdraw"))
+async def cmd_withdraw(message: Message):
+    args = message.text.split(maxsplit=2)
+    if len(args) < 3:
+        await message.answer("⚠️ Format: <code>/withdraw [miqdor] [karta/hamyon_raqami]</code>\nMasalan: <code>/withdraw 500 8600123456789012</code>")
+        return
+    try:
+        amount = int(args[1])
+        details = args[2]
+        if amount <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Miqdor noto'g'ri (faqat musbat son yozing)")
+        return
+        
+    from backend.database import create_withdrawal
+    success, msg = await create_withdrawal(message.from_user.id, amount, details)
+    if success:
+        await message.answer(f"✅ {msg}")
+    else:
+        await message.answer(f"❌ {msg}")
 
 # Legacy reply keyboard button mapping
 @router.message(F.text == "O'yinni boshlash")
@@ -213,8 +251,7 @@ async def text_balance(message: Message):
 async def text_stats(message: Message):
     user = await get_user(message.from_user.id)
     if user and user.get("is_admin"):
-        from bot.handlers.admin import cmd_admin
-        await cmd_admin(message)
+        await message.answer(f"👑 Admin paneliga kirish:\n{ADMIN_PANEL_URL}?token={ADMIN_SECRET}")
     else:
         await cmd_profile(message)
 
@@ -222,5 +259,4 @@ async def text_stats(message: Message):
 async def text_settings(message: Message):
     user = await get_user(message.from_user.id)
     if user and user.get("is_admin"):
-        from bot.handlers.admin import cmd_admin
-        await cmd_admin(message)
+        await message.answer(f"👑 Admin paneliga kirish:\n{ADMIN_PANEL_URL}?token={ADMIN_SECRET}")
