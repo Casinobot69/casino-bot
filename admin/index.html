@@ -736,7 +736,7 @@ async function processWithdraw(id, action) {
   try {
     const confirmAction = confirm(`Haqiqatan ham ushbu so'rovni ${action === 'approve' ? 'tasdiqlamoqchisiz' : 'rad etmoqchisiz'}mi?`);
     if (!confirmAction) return;
-    await apiCall('POST', `/api/withdrawals/${id}/${action}`);
+    await apiCall('POST', `/api/admin/withdrawals/${id}/${action}`);
     toast('✅ So\'rov qayta ishlandi!', 'success');
     loadWithdrawals();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -747,7 +747,7 @@ async function loadPromos() {
   const tbody = document.getElementById('promosTable');
   tbody.innerHTML = '<tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>';
   try {
-    const data = await apiCall('GET', '/api/promos');
+    const data = await apiCall('GET', '/api/admin/promos');
     tbody.innerHTML = data.promos.map(p => `
       <tr>
         <td><code>${p.code}</code></td>
@@ -765,7 +765,7 @@ async function createPromo() {
   const max_uses = parseInt(document.getElementById('promoMaxUses').value);
   if (!code || !reward) return toast('⚠️ Kod va miqdorni to\'ldiring', 'error');
   try {
-    await apiCall('POST', '/api/promos', { code, reward, max_uses });
+    await apiCall('POST', '/api/admin/promos', { code, reward, max_uses });
     toast('🎫 Yangi promo kod yaratildi!', 'success');
     document.getElementById('promoCode').value = '';
     document.getElementById('promoReward').value = '';
@@ -775,7 +775,7 @@ async function createPromo() {
 
 async function deletePromo(id) {
   try {
-    await apiCall('DELETE', `/api/promos/${id}`);
+    await apiCall('DELETE', `/api/admin/promos/${id}`);
     toast('🗑️ Promo-kod o\'chirildi', 'success');
     loadPromos();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -846,27 +846,88 @@ async function loadSettings() {
   try {
     const data = await apiCall('GET', '/api/admin/settings');
     const configs = [
-      { key: 'commission_rate', label: 'Tizim komissiyasi (%)', desc: 'Har bir tugallangan o\'yin bankidan olinadigan ulush' },
-      { key: 'min_bet', label: 'Minimal stavka (Stars)', desc: 'O\'yinchilar uchun eng kam stavka miqdori' },
-      { key: 'max_bet', label: 'Maksimal stavka (Stars)', desc: 'O\'yinchilar uchun eng ko\'p jami stavka miqdori' },
-      { key: 'game_timer', label: 'O\'yin taymeri (soniya)', desc: 'Taymer boshlangandan to spin bo\'lgunicha vaqt' },
-      { key: 'max_players', label: 'Maksimal o\'yinchilar soni', desc: 'Bir o\'yin xonasidagi maksimal ishtirokchilar' },
-      { key: 'welcome_bonus', label: 'Yangi a\'zolar bonusi', desc: 'Botga birinchi marta kirganda beriladigan Stars miqdori' },
-      { key: 'maintenance_mode', label: 'Texnik ishlar rejimi (0 - o\'chirilgan, 1 - yoqilgan)', desc: 'Sayt va botni to\'xtatib turish' }
+      { key: 'commission_rate', label: 'Tizim komissiyasi (%)', desc: 'Har bir tugallangan o\'yin bankidan olinadigan ulush', type: 'text' },
+      { key: 'min_bet', label: 'Minimal stavka (Stars)', desc: 'O\'yinchilar uchun eng kam stavka miqdori', type: 'text' },
+      { key: 'max_bet', label: 'Maksimal stavka (Stars)', desc: 'O\'yinchilar uchun eng ko\'p jami stavka miqdori', type: 'text' },
+      { key: 'game_timer', label: 'O\'yin taymeri (soniya)', desc: 'Taymer boshlangandan to spin bo\'lgunicha vaqt', type: 'text' },
+      { key: 'max_players', label: 'Maksimal o\'yinchilar soni', desc: 'Bir o\'yin xonasidagi maksimal ishtirokchilar', type: 'text' },
+      { key: 'welcome_bonus', label: 'Yangi a\'zolar bonusi', desc: 'Botga birinchi marta kirganda beriladigan Stars miqdori', type: 'text' },
+      { key: 'referral_commission', label: 'Referral komissiya foizi (%)', desc: 'Referral taklif qilgan a\'zo yutganida beriladigan foiz', type: 'text' },
+      { 
+        key: 'active_theme', 
+        label: '🎨 WebApp Faol Dizayni (Theme)', 
+        desc: 'WebApp ko\'rinishini o\'zgartirish', 
+        type: 'select',
+        options: [
+          { value: 'classic', label: '🔵 Classic Neon Blue (Standart)' },
+          { value: 'luxury', label: '👑 Luxury Gold (Oltin & Qora)' },
+          { value: 'cyberpunk', label: '🔴 Cyberpunk Neon Pink (Neon Qizil)' }
+        ]
+      },
+      { 
+        key: 'chat_enabled', 
+        label: '💬 Jonli Chat/Log Oynasi', 
+        desc: 'O\'yinchilar uchun loglar chatini ko\'rsatish/yashirish', 
+        type: 'select',
+        options: [
+          { value: '1', label: '✅ Yoqilgan' },
+          { value: '0', label: '❌ O\'chirilgan' }
+        ]
+      },
+      { 
+        key: 'sound_enabled', 
+        label: '🔊 Standart Ovozlar', 
+        desc: 'Baraban chertish ovozlari yoqilgan yoki o\'chirilganligi', 
+        type: 'select',
+        options: [
+          { value: '1', label: '✅ Yoqilgan' },
+          { value: '0', label: '❌ O\'chirilgan' }
+        ]
+      },
+      { 
+        key: 'auto_bot_inject', 
+        label: '🤖 Avtomatik Bot Injector', 
+        desc: 'O\'yin xonasi 30 soniya davomida bo\'sh tursa, tizim o\'zi botlarni qo\'shib yuborishi', 
+        type: 'select',
+        options: [
+          { value: '1', label: '✅ Yoqilgan' },
+          { value: '0', label: '❌ O\'chirilgan' }
+        ]
+      },
+      { 
+        key: 'maintenance_mode', 
+        label: '🚧 Texnik ishlar (Maintenance Mode)', 
+        desc: 'Sayt va botga kirishni vaqtincha cheklash', 
+        type: 'select',
+        options: [
+          { value: '1', label: '🚧 Yoqilgan (Sayt yopiq)' },
+          { value: '0', label: '✅ O\'chirilgan (Sayt ochiq)' }
+        ]
+      }
     ];
     
-    div.innerHTML = configs.map(c => `
-      <div style="margin-bottom:18px;">
-        <label class="input-label">${c.label}</label>
-        <input class="input" style="margin-top:6px;" id="config_${c.key}" type="text" value="${data[c.key] || '0'}">
-        <div style="font-size:12px;color:var(--text2);margin-top:4px;">${c.desc}</div>
-      </div>
-    `).join('') + `<button class="btn btn-primary" style="width:100%;margin-top:20px;" onclick="saveSettings()">💾 Sozlamalarni Saqlash</button>`;
+    div.innerHTML = configs.map(c => {
+      let inputHtml = '';
+      if (c.type === 'select') {
+        inputHtml = `<select class="input" style="margin-top:6px;" id="config_${c.key}">
+          ${c.options.map(o => `<option value="${o.value}" ${data[c.key] === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+        </select>`;
+      } else {
+        inputHtml = `<input class="input" style="margin-top:6px;" id="config_${c.key}" type="text" value="${data[c.key] || '0'}">`;
+      }
+      return `
+        <div style="margin-bottom:18px;">
+          <label class="input-label">${c.label}</label>
+          ${inputHtml}
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${c.desc}</div>
+        </div>
+      `;
+    }).join('') + `<button class="btn btn-primary" style="width:100%;margin-top:20px;" onclick="saveSettings()">💾 Sozlamalarni Saqlash</button>`;
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function saveSettings() {
-  const keys = ['commission_rate', 'min_bet', 'max_bet', 'game_timer', 'max_players', 'welcome_bonus', 'maintenance_mode'];
+  const keys = ['commission_rate', 'min_bet', 'max_bet', 'game_timer', 'max_players', 'welcome_bonus', 'referral_commission', 'active_theme', 'chat_enabled', 'sound_enabled', 'auto_bot_inject', 'maintenance_mode'];
   let saved = 0;
   for (const k of keys) {
     const val = document.getElementById('config_' + k).value.trim();

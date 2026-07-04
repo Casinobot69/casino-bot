@@ -174,6 +174,11 @@ async def init_db():
             ("maintenance_mode", "0"),
             ("welcome_bonus", "0"),
             ("referral_bonus", "0"),
+            ("active_theme", "classic"),
+            ("chat_enabled", "1"),
+            ("sound_enabled", "1"),
+            ("referral_commission", "5"),
+            ("auto_bot_inject", "0"),
         ]
         for key, value in defaults:
             await db.execute(

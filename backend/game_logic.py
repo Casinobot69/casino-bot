@@ -117,7 +117,74 @@ async def create_game_room(telegram_id: int, commission_rate: int = 5, timer: in
         room.game_db_id = cursor.lastrowid
         await db.commit()
 
+    # Start bot injection checker
+    asyncio.create_task(bot_injection_loop(room_id))
+
     return room
+
+
+async def bot_injection_loop(room_id: str):
+    await asyncio.sleep(15)
+    room = active_rooms.get(room_id)
+    if not room or room.status not in ("waiting", "betting"):
+        return
+        
+    settings = await _get_settings()
+    if settings.get("auto_bot_inject") != "1":
+        return
+        
+    if len(room.players) == 0:
+        await inject_fake_player_silently(room_id)
+        
+    await asyncio.sleep(15)
+    room = active_rooms.get(room_id)
+    if not room or room.status not in ("waiting", "betting"):
+        return
+        
+    if len(room.players) == 1:
+        await inject_fake_player_silently(room_id)
+
+
+async def inject_fake_player_silently(room_id: str):
+    room = active_rooms.get(room_id)
+    if not room:
+        return
+    import random
+    fake_tg_id = random.randint(1000000, 9999999)
+    bot_names = ["Ali", "Vali", "Sardor", "Jasur", "Madina", "Shaxlo", "Murod", "Bekzod", "Kamola", "Diyor"]
+    bot_name = random.choice(bot_names)
+    
+    fake_user = {
+        "id": fake_tg_id,
+        "telegram_id": fake_tg_id,
+        "username": f"{bot_name.lower()}_{random.randint(10, 99)}",
+        "first_name": bot_name,
+        "last_name": "",
+        "photo_url": ""
+    }
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO users (telegram_id, username, first_name, last_name, balance) VALUES (?,?,?,?,?)",
+            (fake_tg_id, fake_user["username"], fake_user["first_name"], "", 10000)
+        )
+        await db.commit()
+        async with db.execute("SELECT id FROM users WHERE telegram_id=?", (fake_tg_id,)) as c:
+            row = await c.fetchone()
+            if row:
+                fake_user["id"] = row[0]
+                
+    settings = await _get_settings()
+    min_bet = int(settings.get("min_bet", 100))
+    max_bet = int(settings.get("max_bet", 2500))
+    bet_amount = random.randint(min_bet, min(max_bet, min_bet * 3))
+    
+    success, msg = await join_game_room(room_id, fake_user, bet_amount)
+    if success:
+        await manager.broadcast(room_id, {
+            "action": "player_joined",
+            **room.to_dict()
+        })
 
 
 async def join_game_room(room_id: str, user: dict, bet: int) -> tuple[bool, str]:

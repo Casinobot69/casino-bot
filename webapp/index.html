@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
+  :root, .theme-classic {
     --bg: #090a0f;
     --surface: #10121a;
     --surface2: #181b26;
@@ -23,6 +23,36 @@
     --green: #2ed573;
     --red: #ff4757;
     --radius: 18px;
+  }
+  .theme-luxury {
+    --bg: #0b0b0c;
+    --surface: #121215;
+    --surface2: #1b1b1f;
+    --surface3: #25252b;
+    --border: #2f2f37;
+    --text: #f5f5f7;
+    --text2: #8c8c9a;
+    --accent: #ffa500;
+    --accent-glow: rgba(255,165,0,0.3);
+    --gold: #ffa500;
+    --gold-glow: rgba(255,165,0,0.4);
+    --green: #2ecc71;
+    --red: #e74c3c;
+  }
+  .theme-cyberpunk {
+    --bg: #0c0005;
+    --surface: #19010c;
+    --surface2: #2b0317;
+    --surface3: #3b0521;
+    --border: #4d092e;
+    --text: #ffecf5;
+    --text2: #a3738e;
+    --accent: #ff0055;
+    --accent-glow: rgba(255,0,85,0.4);
+    --gold: #ff9900;
+    --gold-glow: rgba(255,153,0,0.3);
+    --green: #00ff66;
+    --red: #ff0055;
   }
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; overflow-x: hidden; }
   body { display: flex; flex-direction: column; min-height: 100vh; position: relative; }
@@ -280,7 +310,7 @@
   </div>
   <div class="header-right">
     <div class="header-btn" onclick="showPromoModal()">🎫</div>
-    <div class="header-btn" onclick="showLogModal()">💬</div>
+    <div class="header-btn" id="chatBtn" onclick="showLogModal()">💬</div>
   </div>
 </div>
 
@@ -498,7 +528,16 @@ async function joinActiveRoomSpectator() {
     state.gameStatus = data.room.status;
     state.timeLeft = data.room.time_left;
     
-    // Check if I am already in the players list of this room
+    // Apply active theme from settings
+    const theme = data.active_theme || 'classic';
+    document.documentElement.className = `theme-${theme}`;
+    
+    // Toggle chat button based on settings
+    const chatBtn = document.getElementById('chatBtn');
+    if (chatBtn) {
+      chatBtn.style.display = data.chat_enabled === '1' ? 'flex' : 'none';
+    }
+    
     const me = state.players.find(p => p.telegram_id === state.user.telegram_id);
     if (me) {
       state.isInGame = true;

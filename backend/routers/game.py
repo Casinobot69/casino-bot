@@ -50,10 +50,20 @@ async def get_current_room():
     
     for rid, room in active_rooms.items():
         if room.status in ("waiting", "betting") and len(room.players) < max_p:
-            return {"room_id": rid, "room": room.to_dict()}
+            return {
+                "room_id": rid,
+                "room": room.to_dict(),
+                "active_theme": settings.get("active_theme", "classic"),
+                "chat_enabled": settings.get("chat_enabled", "1")
+            }
             
     room = await create_game_room(0, commission_rate, timer)
-    return {"room_id": room.room_id, "room": room.to_dict()}
+    return {
+        "room_id": room.room_id,
+        "room": room.to_dict(),
+        "active_theme": settings.get("active_theme", "classic"),
+        "chat_enabled": settings.get("chat_enabled", "1")
+    }
 
 
 @router.post("/join")
