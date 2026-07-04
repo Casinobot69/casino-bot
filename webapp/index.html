@@ -457,7 +457,7 @@ let state = {
   animFrame: null,
   wheelRotation: 0,
   isSpinning: false,
-  lastTickAngle: 0,
+  lastTick: 0,
   logs: []
 };
 
@@ -481,22 +481,49 @@ async function init() {
     state.user = resp.user;
     state.balance = resp.user.balance;
     updateBalanceDisplay();
-    drawWheel();
-    addLog('system', 'Arena ulandi. O\'yinchi kutilmoqda...');
-    updateStatusBar('waiting', '👥 O\'yin xonasini kutmoqda...');
     
-    // Join default room check
-    joinDefaultRoom();
+    // Connect to current room immediately as spectator
+    await joinActiveRoomSpectator();
   } catch(e) {
     showToast('❌ Xato: ' + e.message);
   }
 }
 
-async function joinDefaultRoom() {
+async function joinActiveRoomSpectator() {
   try {
-    const active = await api('GET', '/api/user/profile/' + state.user.telegram_id);
-    // Find active transactions/rooms if any
-  } catch(e) {}
+    const data = await api('GET', '/api/game/current');
+    state.roomId = data.room_id;
+    state.players = data.room.players || [];
+    state.totalBank = data.room.total_bank || 0;
+    state.gameStatus = data.room.status;
+    state.timeLeft = data.room.time_left;
+    
+    // Check if I am already in the players list of this room
+    const me = state.players.find(p => p.telegram_id === state.user.telegram_id);
+    if (me) {
+      state.isInGame = true;
+      const btn = document.getElementById('playBtn');
+      btn.textContent = '➕ Stavkani oshirish';
+      btn.style.background = 'linear-gradient(135deg, var(--gold), #fd9644)';
+      btn.style.color = '#000';
+    } else {
+      state.isInGame = false;
+      const btn = document.getElementById('playBtn');
+      btn.textContent = '🎮 Stavka qo\'yish';
+      btn.style.background = 'linear-gradient(135deg, var(--accent), var(--accent2))';
+      btn.style.color = '#fff';
+    }
+    
+    updatePlayersList();
+    updateBankDisplay();
+    updateGameId(data.room_id, data.room.game_hash);
+    drawWheel();
+    
+    // Instantly connect to WebSocket
+    connectWS(data.room_id);
+  } catch(e) {
+    showToast('❌ Live xonaga ulanib bo\'lmadi');
+  }
 }
 
 // API HELPER
@@ -629,12 +656,16 @@ function varColor(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+function easeOutQuint(x) {
+  return 1 - Math.pow(1 - x, 5);
+}
+
 // 1XBET REAL PHYSICS SPINNING
 function spinWheel(targetAngleRad, duration, onComplete) {
   state.isSpinning = true;
-  state.lastTickAngle = 0;
+  state.lastTick = 0;
   const startRotation = state.wheelRotation;
-  const extraRotations = Math.PI * 2 * 14; // 14 complete spins for realistic speed
+  const extraRotations = Math.PI * 2 * 14;
   const totalAngle = extraRotations + targetAngleRad;
   const startTime = performance.now();
 
@@ -642,15 +673,15 @@ function spinWheel(targetAngleRad, duration, onComplete) {
     const elapsed = now - startTime;
     const progress = Math.min(elapsed / duration, 1);
     
-    // custom decel curve
     const eased = easeOutQuint(progress);
     state.wheelRotation = startRotation + totalAngle * eased;
     
-    // Play tick sound when sectors cross pointer
-    const currentAngDeg = (state.wheelRotation * 180 / Math.PI) % 360;
-    if (Math.abs(currentAngDeg - state.lastTickAngle) > 18) {
+    // Play tick sound when wheel rotation crosses a 15-degree boundary (24 ticks per turn)
+    const tickSize = Math.PI / 12;
+    const currentTick = Math.floor(state.wheelRotation / tickSize);
+    if (currentTick !== state.lastTick) {
       AudioTick.play();
-      state.lastTickAngle = currentAngDeg;
+      state.lastTick = currentTick;
     }
     
     drawWheel(state.wheelRotation);

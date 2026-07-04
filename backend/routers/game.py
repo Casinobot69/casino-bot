@@ -41,6 +41,21 @@ async def game_history(limit: int = Query(20, le=100)):
     return {"games": games}
 
 
+@router.get("/current")
+async def get_current_room():
+    settings = await _get_settings()
+    commission_rate = int(settings.get("commission_rate", 5))
+    timer = int(settings.get("game_timer", 30))
+    max_p = int(settings.get("max_players", 8))
+    
+    for rid, room in active_rooms.items():
+        if room.status in ("waiting", "betting") and len(room.players) < max_p:
+            return {"room_id": rid, "room": room.to_dict()}
+            
+    room = await create_game_room(0, commission_rate, timer)
+    return {"room_id": room.room_id, "room": room.to_dict()}
+
+
 @router.post("/join")
 async def join_game(body: JoinRoomRequest):
     user = await get_user(body.telegram_id)
